@@ -1,0 +1,1155 @@
+const fs = require('fs');
+
+function write(file, content) {
+  fs.writeFileSync(file, content, 'utf8');
+  console.log('✅ ' + file);
+}
+
+console.log('🚀 Aplicando Update 5...\n');
+
+// ============ UTILS (corregir cumpleaños con zona horaria) ============
+write('src/lib/utils.ts', `import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { format, formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
+
+// Parsear fecha SIN problemas de zona horaria
+export function parseLocalDate(dateStr: string | null | undefined): Date | null {
+  if (!dateStr) return null;
+  // Si viene como "YYYY-MM-DD", parsear manualmente para evitar shift de zona horaria
+  const str = typeof dateStr === 'string' ? dateStr : dateStr.toISOString();
+  const match = str.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  if (match) {
+    const [_, y, m, d] = match;
+    return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  }
+  return new Date(str);
+}
+
+export function formatDate(date: any): string {
+  if (!date) return '—';
+  const d = parseLocalDate(typeof date === 'string' ? date : date.toISOString?.() || date);
+  if (!d) return '—';
+  return format(d, 'dd/MM/yyyy', { locale: es });
+}
+
+export function formatRelativeDate(date: any): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return formatDistanceToNow(d, { addSuffix: true, locale: es });
+}
+
+export function getWhatsAppUrl(phone: string | null | undefined): string {
+  if (!phone) return '#';
+  return \`https://wa.me/\${phone.replace(/\\D/g, '')}\`;
+}
+
+// Calcular días hasta el próximo cumpleaños (CORREGIDO)
+export function daysUntilBirthday(birthDate: string | null | undefined): number {
+  if (!birthDate) return 999;
+  const bd = parseLocalDate(birthDate);
+  if (!bd) return 999;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Próximo cumpleaños usando el MES y DÍA de la fecha de nacimiento
+  const nextBd = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+  nextBd.setHours(0, 0, 0, 0);
+  
+  // Si ya pasó este año, calcular para el año que viene
+  if (nextBd < today) {
+    nextBd.setFullYear(today.getFullYear() + 1);
+  }
+  
+  const diff = nextBd.getTime() - today.getTime();
+  return Math.round(diff / 86400000);
+}
+
+export function daysUntil(date: any): number {
+  if (!date) return 999;
+  const d = parseLocalDate(typeof date === 'string' ? date : date.toISOString?.() || date);
+  if (!d) return 999;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const target = new Date(d); target.setHours(0,0,0,0);
+  return Math.ceil((target.getTime() - now.getTime()) / 86400000);
+}
+
+export function getInitials(name: string, lastName: string): string {
+  return \`\${(name[0]||'').toUpperCase()}\${(lastName[0]||'').toUpperCase()}\`;
+}`);
+
+// ============ UI - Card mejorado ============
+write('src/components/ui/Card.tsx', `import { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+
+export function Card({ children, className, onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
+  return <div onClick={onClick} className={cn('bg-white rounded-2xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-200', onClick && 'cursor-pointer', className)}>{children}</div>;
+}
+export function CardHeader({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('px-5 py-4 border-b border-slate-100', className)}>{children}</div>;
+}
+export function CardContent({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn('p-5', className)}>{children}</div>;
+}`);
+
+// ============ UI - Button mejorado ============
+write('src/components/ui/Button.tsx', `import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { cn } from '@/lib/utils';
+
+const variants: any = {
+  primary: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-sm shadow-blue-500/20',
+  secondary: 'bg-slate-100 text-slate-900 hover:bg-slate-200',
+  danger: 'bg-gradient-to-r from-red-500 to-rose-500 text-white hover:from-red-600 hover:to-rose-600 shadow-sm shadow-red-500/20',
+  outline: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300',
+  ghost: 'text-slate-600 hover:bg-slate-100',
+};
+const sizes: any = { sm: 'px-3 py-1.5 text-xs', md: 'px-4 py-2 text-sm', lg: 'px-5 py-2.5 text-sm' };
+
+export const Button = forwardRef<HTMLButtonElement, any>(
+  ({ className, variant = 'primary', size = 'md', children, ...props }, ref) => (
+    <button ref={ref} className={cn('inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]', variants[variant], sizes[size], className)} {...props}>
+      {children}
+    </button>
+  )
+);`);
+
+// ============ UI - Badge mejorado ============
+write('src/components/ui/Badge.tsx', `import { cn } from '@/lib/utils';
+export function Badge({ children, color = 'bg-slate-100 text-slate-700', className }: any) {
+  return <span className={cn('inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium', color, className)}>{children}</span>;
+}`);
+
+// ============ UI - Input mejorado ============
+write('src/components/ui/Input.tsx', `import { InputHTMLAttributes, forwardRef } from 'react';
+import { cn } from '@/lib/utils';
+
+export const Input = forwardRef<HTMLInputElement, any>(
+  ({ className, label, id, ...props }, ref) => (
+    <div className="w-full">
+      {label && <label htmlFor={id} className="block text-xs font-medium text-slate-600 mb-1.5">{label}</label>}
+      <input ref={ref} id={id} className={cn('w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all', className)} {...props} />
+    </div>
+  )
+);`);
+
+// ============ UI - Modal mejorado ============
+write('src/components/ui/Modal.tsx', `import { ReactNode, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+
+export function Modal({ open, onClose, title, children, size = 'md' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: string }) {
+  useEffect(() => { document.body.style.overflow = open ? 'hidden' : ''; }, [open]);
+  if (!open) return null;
+  const sz: any = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl', '2xl': 'max-w-5xl' };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in">
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className={cn('relative bg-white rounded-3xl shadow-2xl w-full max-h-[90vh] overflow-hidden flex flex-col', sz[size])}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-500 transition-colors">✕</button>
+        </div>
+        <div className="overflow-y-auto p-6">{children}</div>
+      </div>
+    </div>
+  );
+}`);
+
+// ============ DASHBOARD (cobros arriba, calendario chico, cumpleaños corregido) ============
+write('src/pages/Dashboard.tsx', `import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { formatDate, daysUntilBirthday } from '@/lib/utils';
+import { Loading } from '@/components/common/Loading';
+
+export function Dashboard() {
+  const [stats, setStats] = useState<any>(null);
+  const [renewals, setRenewals] = useState<any[]>([]);
+  const [birthdays, setBirthdays] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [prospects, setProspects] = useState<any[]>([]);
+  const [calendarNotes, setCalendarNotes] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [noteTitle, setNoteTitle] = useState('');
+  const [noteContent, setNoteContent] = useState('');
+  const [noteColor, setNoteColor] = useState('#3b82f6');
+
+  useEffect(() => { loadAll(); }, []);
+
+  async function loadAll() { 
+    await Promise.all([loadStats(), loadRenewals(), loadBirthdays(), loadPayments(), loadProspects(), loadCalendarNotes()]); 
+  }
+
+  async function loadStats() {
+    const [c, p, pol, t, cl] = await Promise.all([
+      supabase.from('clients').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+      supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+      supabase.from('policies').select('id', { count: 'exact', head: true }).eq('is_archived', false),
+      supabase.from('tasks').select('id', { count: 'exact', head: true }).neq('status', 'Finalizada'),
+      supabase.from('claims').select('id', { count: 'exact', head: true }).neq('status', 'Cerrado'),
+    ]);
+    setStats({ clients: c.count||0, prospects: p.count||0, policies: pol.count||0, pendingTasks: t.count||0, activeClaims: cl.count||0 });
+  }
+
+  async function loadRenewals() {
+    const today = new Date().toISOString().split('T')[0];
+    const in7 = new Date(Date.now() + 7*86400000).toISOString().split('T')[0];
+    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name), companies(name)')
+      .eq('is_archived', false).gte('expiration_date', today).lte('expiration_date', in7).order('expiration_date');
+    setRenewals(data || []);
+  }
+
+  async function loadBirthdays() {
+    const { data } = await supabase.from('clients').select('id, first_name, last_name, birth_date').eq('is_archived', false).not('birth_date', 'is', null);
+    const upcoming = (data || [])
+      .map((c) => ({ ...c, days: daysUntilBirthday(c.birth_date) }))
+      .filter((c) => c.days <= 15)
+      .sort((a, b) => a.days - b.days)
+      .slice(0, 5);
+    setBirthdays(upcoming);
+  }
+
+  async function loadPayments() {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name), companies(name)')
+      .in('payment_method', ['Efectivo', 'Cheques']).eq('is_archived', false).not('payment_day', 'is', null).order('payment_day');
+    const filtered = (data || []).filter((p: any) => {
+      const day = p.payment_day;
+      const diff = day - currentDay;
+      return diff >= 0 && diff <= 5;
+    });
+    setPayments(filtered);
+  }
+
+  async function loadProspects() {
+    const { data } = await supabase.from('prospects').select('*, commercial_states(name)').eq('is_archived', false).order('created_at', { ascending: false }).limit(10);
+    setProspects(data || []);
+  }
+
+  async function loadCalendarNotes() {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+    const { data } = await supabase.from('calendar_notes').select('*').gte('note_date', startOfMonth).lte('note_date', endOfMonth).order('note_date');
+    setCalendarNotes(data || []);
+  }
+
+  async function addCalendarNote() {
+    if (!selectedDate || !noteTitle.trim()) { alert('Completá el título'); return; }
+    try {
+      const { error } = await supabase.from('calendar_notes').insert({ title: noteTitle, content: noteContent || null, note_date: selectedDate, color: noteColor });
+      if (error) { alert('Error: ' + error.message); return; }
+      setNoteTitle(''); setNoteContent(''); setNoteColor('#3b82f6'); setSelectedDate(null);
+      loadCalendarNotes();
+    } catch (err: any) { alert('Error: ' + err.message); }
+  }
+
+  async function deleteCalendarNote(id: string) {
+    if (!confirm('¿Eliminar nota?')) return;
+    await supabase.from('calendar_notes').delete().eq('id', id);
+    loadCalendarNotes();
+  }
+
+  async function togglePaymentCollected(policyId: string, current: boolean) {
+    const { error } = await supabase.from('policies').update({ 
+      payment_collected: !current, 
+      payment_collected_at: !current ? new Date().toISOString() : null 
+    }).eq('id', policyId);
+    if (error) { alert('Error: ' + error.message); return; }
+    loadPayments();
+  }
+
+  if (!stats) return <Loading />;
+
+  const stats_cards = [
+    { label: 'Clientes', value: stats.clients, icon: '👥', color: 'from-blue-500 to-indigo-500' },
+    { label: 'Prospectos', value: stats.prospects, icon: '🎯', color: 'from-purple-500 to-pink-500' },
+    { label: 'Pólizas', value: stats.policies, icon: '🛡️', color: 'from-emerald-500 to-teal-500' },
+    { label: 'Gestiones', value: stats.pendingTasks, icon: '✅', color: 'from-amber-500 to-orange-500' },
+    { label: 'Siniestros', value: stats.activeClaims, icon: '⚠️', color: 'from-red-500 to-rose-500' },
+  ];
+
+  // Calendario chico
+  const today = new Date();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const calendarDays = [];
+  for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+  for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
+
+  const pendingPayments = payments.filter((p) => !p.payment_collected);
+  const collectedPayments = payments.filter((p) => p.payment_collected);
+
+  return (
+    <div className="space-y-6">
+      {/* HEADER */}
+      <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-8 text-white shadow-xl shadow-blue-500/20">
+        <h1 className="text-3xl font-bold">Buen día 👋</h1>
+        <p className="text-blue-100 mt-1">Resumen de tu oficina · {today.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+      </div>
+
+      {/* ESTADÍSTICAS */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        {stats_cards.map((s) => (
+          <div key={s.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
+            <div className={\`w-11 h-11 bg-gradient-to-br \${s.color} rounded-xl flex items-center justify-center mb-3 text-xl shadow-md\`}>{s.icon}</div>
+            <p className="text-3xl font-bold text-slate-900">{s.value}</p>
+            <p className="text-xs text-slate-500 mt-1 font-medium">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* COBROS - PRIORIDAD ALTA */}
+      <Card className="border-2 border-emerald-200 bg-gradient-to-br from-emerald-50/50 to-white">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">💰 Cobros pendientes (próx. 5 días)</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{pendingPayments.length} por cobrar · {collectedPayments.length} ya cobrados</p>
+            </div>
+            {pendingPayments.length > 0 && (
+              <Badge color="bg-emerald-100 text-emerald-700 border border-emerald-300">⚡ Atención</Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {payments.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingPayments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-emerald-200 hover:border-emerald-300 transition-colors">
+                  <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={p.payment_collected || false}
+                      onChange={() => togglePaymentCollected(p.id, p.payment_collected)}
+                      className="w-5 h-5 rounded-md border-2 border-emerald-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{p.clients?.first_name} {p.clients?.last_name}</p>
+                      <p className="text-xs text-slate-500">{p.companies?.name} · {p.payment_method}</p>
+                    </div>
+                  </label>
+                  <Badge color="bg-emerald-100 text-emerald-700">Día {p.payment_day}</Badge>
+                </div>
+              ))}
+              {collectedPayments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 opacity-60">
+                  <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={true}
+                      onChange={() => togglePaymentCollected(p.id, true)}
+                      className="w-5 h-5 rounded-md border-2 border-emerald-500 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-slate-600 line-through">{p.clients?.first_name} {p.clients?.last_name}</p>
+                      <p className="text-xs text-slate-400">Cobrado · {p.companies?.name}</p>
+                    </div>
+                  </label>
+                  <Badge color="bg-slate-100 text-slate-500">✓ Día {p.payment_day}</Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* CALENDARIO CHICO */}
+        <Card>
+          <CardHeader>
+            <h3 className="font-semibold text-slate-900 text-sm">📅 {today.toLocaleString('es', { month: 'long', year: 'numeric' })}</h3>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-7 gap-0.5 mb-1">
+              {['D','L','M','M','J','V','S'].map((d, i) => (
+                <div key={i} className="text-center text-[10px] font-semibold text-slate-400 py-0.5">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-0.5">
+              {calendarDays.map((day, i) => {
+                if (!day) return <div key={i} />;
+                const dateStr = \`\${currentYear}-\${String(currentMonth + 1).padStart(2, '0')}-\${String(day).padStart(2, '0')}\`;
+                const dayNotes = calendarNotes.filter((n) => n.note_date === dateStr);
+                const isToday = day === today.getDate();
+                const isSelected = selectedDate === dateStr;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedDate(isSelected ? null : dateStr)}
+                    className={\`aspect-square rounded-md text-xs font-medium transition-all relative \${
+                      isToday ? 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-sm' : 
+                      isSelected ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-400' : 
+                      'hover:bg-slate-100 text-slate-700'
+                    }\`}
+                  >
+                    {day}
+                    {dayNotes.length > 0 && (
+                      <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-px">
+                        {dayNotes.slice(0, 3).map((n, idx) => (
+                          <div key={idx} className="w-1 h-1 rounded-full" style={{ backgroundColor: isToday ? 'white' : n.color }} />
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            
+            {selectedDate && (
+              <div className="mt-3 p-3 bg-gradient-to-br from-slate-50 to-blue-50/50 rounded-xl space-y-2 border border-slate-200">
+                <div className="flex justify-between items-center">
+                  <p className="text-xs font-semibold text-slate-700">📝 {formatDate(selectedDate)}</p>
+                  <button onClick={() => setSelectedDate(null)} className="text-slate-400 hover:text-slate-600 text-sm">×</button>
+                </div>
+                <input type="text" placeholder="Título *" value={noteTitle} onChange={(e) => setNoteTitle(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                <textarea placeholder="Descripción..." value={noteContent} onChange={(e) => setNoteContent(e.target.value)} rows={2} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg text-xs" />
+                <div className="flex gap-2">
+                  <select value={noteColor} onChange={(e) => setNoteColor(e.target.value)} className="flex-1 px-2 py-1.5 border border-slate-200 rounded-lg text-xs">
+                    <option value="#3b82f6">🔵 Azul</option>
+                    <option value="#10b981">🟢 Verde</option>
+                    <option value="#f59e0b">🟡 Amarillo</option>
+                    <option value="#ef4444">🔴 Rojo</option>
+                    <option value="#8b5cf6">🟣 Violeta</option>
+                  </select>
+                  <Button onClick={addCalendarNote} size="sm">+</Button>
+                </div>
+                {calendarNotes.filter((n) => n.note_date === selectedDate).length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-slate-200">
+                    {calendarNotes.filter((n) => n.note_date === selectedDate).map((n) => (
+                      <div key={n.id} className="bg-white rounded-lg p-2 border-l-4 flex justify-between items-start" style={{ borderColor: n.color }}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-900 truncate">{n.title}</p>
+                          {n.content && <p className="text-[10px] text-slate-500 truncate">{n.content}</p>}
+                        </div>
+                        <button onClick={() => deleteCalendarNote(n.id)} className="text-red-400 hover:text-red-600 text-xs ml-1">🗑️</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* CUMPLEAÑOS */}
+        <Card>
+          <CardHeader><h3 className="font-semibold text-slate-900 text-sm">🎂 Cumpleaños próximos</h3></CardHeader>
+          <CardContent className="space-y-2">
+            {birthdays.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Sin cumpleaños próximos</p> :
+              birthdays.map((c) => (
+                <div key={c.id} className="flex items-center justify-between p-3 bg-gradient-to-r from-pink-50 to-rose-50 rounded-xl border border-pink-200">
+                  <p className="text-sm font-medium text-slate-900">{c.first_name} {c.last_name}</p>
+                  <Badge color={c.days === 0 ? 'bg-pink-600 text-white' : 'bg-pink-100 text-pink-700'}>
+                    {c.days === 0 ? '🎉 Hoy' : c.days === 1 ? '🎈 Mañana' : \`\${c.days} días\`}
+                  </Badge>
+                </div>
+              ))}
+          </CardContent>
+        </Card>
+
+        {/* RENOVACIONES */}
+        <Card>
+          <CardHeader><h3 className="font-semibold text-slate-900 text-sm">🔄 Renovaciones (7 días)</h3></CardHeader>
+          <CardContent className="space-y-2">
+            {renewals.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Sin renovaciones</p> :
+              renewals.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{p.clients?.first_name} {p.clients?.last_name}</p>
+                    <p className="text-xs text-slate-500">{p.companies?.name}</p>
+                  </div>
+                  <Badge color="bg-amber-100 text-amber-700">{formatDate(p.expiration_date)}</Badge>
+                </div>
+              ))}
+          </CardContent>
+        </Card>
+
+        {/* PROSPECTOS */}
+        <Card className="lg:col-span-3">
+          <CardHeader><h3 className="font-semibold text-slate-900 text-sm">🎯 Prospectos recientes</h3></CardHeader>
+          <CardContent>
+            {prospects.length === 0 ? <p className="text-sm text-slate-500 text-center py-6">Sin prospectos</p> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {prospects.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{p.first_name} {p.last_name}</p>
+                      <p className="text-xs text-slate-500">{p.commercial_states?.name}</p>
+                    </div>
+                    {p.whatsapp && (
+                      <a href={\`https://wa.me/\${p.whatsapp.replace(/\\D/g, '')}\`} target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1.5 bg-green-500 text-white rounded-lg text-xs hover:bg-green-600 shadow-sm">💬</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}`);
+
+// ============ PROSPECTS (tarjetas limpias con menú de 3 puntos) ============
+write('src/pages/Prospects.tsx', `import { useEffect, useState, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Modal } from '@/components/ui/Modal';
+import { Card } from '@/components/ui/Card';
+import { WhatsAppButton } from '@/components/common/WhatsAppButton';
+import { Loading } from '@/components/common/Loading';
+import { formatRelativeDate, getInitials } from '@/lib/utils';
+
+export function Prospects() {
+  const [prospects, setProspects] = useState<any[]>([]);
+  const [states, setStates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
+  const [selectedProspect, setSelectedProspect] = useState<any>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  useEffect(() => { load(); }, []);
+
+  // Cerrar menú al hacer click fuera
+  useEffect(() => {
+    function handleClick() { setOpenMenuId(null); }
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  async function load() {
+    const [p, s] = await Promise.all([
+      supabase.from('prospects').select('*, commercial_states(*)').eq('is_archived', false).order('created_at', { ascending: false }),
+      supabase.from('commercial_states').select('*').eq('is_active', true).order('order_index'),
+    ]);
+    setProspects(p.data || []); setStates(s.data || []); setLoading(false);
+  }
+
+  async function updateState(id: string, stateId: string) {
+    await supabase.from('prospects').update({ state_id: stateId }).eq('id', id);
+    setOpenMenuId(null);
+    load();
+  }
+
+  async function archive(id: string) {
+    if (!confirm('¿Archivar?')) return;
+    await supabase.from('prospects').update({ is_archived: true, archived_at: new Date().toISOString() }).eq('id', id);
+    setOpenMenuId(null);
+    load();
+  }
+
+  if (loading) return <Loading />;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Prospectos</h1>
+          <p className="text-sm text-slate-500 mt-1">Embudo comercial · {prospects.length} prospectos</p>
+        </div>
+        <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Nuevo prospecto</Button>
+      </div>
+
+      <div className="flex gap-4 overflow-x-auto pb-4 -mx-6 px-6">
+        {states.map((state) => {
+          const column = prospects.filter((p) => p.state_id === state.id);
+          return (
+            <div key={state.id} className="flex-shrink-0 w-72">
+              <div className="flex items-center gap-2 mb-3 px-1">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: state.color }} />
+                <h3 className="font-semibold text-sm text-slate-900">{state.name}</h3>
+                <span className="text-xs text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 font-medium">{column.length}</span>
+              </div>
+              <div className="space-y-2 min-h-[300px] bg-slate-50/50 rounded-2xl p-2">
+                {column.map((p) => (
+                  <Card key={p.id} className="p-3 relative" onClick={() => setSelectedProspect(p)}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ backgroundColor: state.color + '20', color: state.color }}>
+                          {getInitials(p.first_name, p.last_name)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-sm text-slate-900 truncate">{p.first_name} {p.last_name}</p>
+                          {p.city && <p className="text-xs text-slate-500 truncate">{p.city}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {p.whatsapp && <WhatsAppButton phone={p.whatsapp} size="sm" />}
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === p.id ? null : p.id); }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-500"
+                        >
+                          ⋮
+                        </button>
+                      </div>
+                    </div>
+
+                    {openMenuId === p.id && (
+                      <div className="absolute right-3 top-12 z-20 bg-white rounded-xl shadow-lg border border-slate-200 py-1 min-w-[160px]" onClick={(e) => e.stopPropagation()}>
+                        <p className="px-3 py-1 text-[10px] font-semibold text-slate-400 uppercase">Mover a</p>
+                        {states.filter((s) => s.id !== state.id).map((s) => (
+                          <button key={s.id} onClick={() => updateState(p.id, s.id)} className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
+                            {s.name}
+                          </button>
+                        ))}
+                        <div className="border-t border-slate-100 my-1" />
+                        <button onClick={() => { setEditing(p); setShowForm(true); setOpenMenuId(null); }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50">✏️ Editar</button>
+                        <button onClick={() => archive(p.id)} className="w-full text-left px-3 py-1.5 text-sm hover:bg-red-50 text-red-600">📦 Archivar</button>
+                      </div>
+                    )}
+                  </Card>
+                ))}
+                {column.length === 0 && <p className="text-center text-xs text-slate-400 py-8">Vacío</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {showForm && <ProspectForm prospect={editing} states={states} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
+      {selectedProspect && <ProspectDetailView prospect={selectedProspect} onClose={() => setSelectedProspect(null)} onUpdate={() => { setSelectedProspect(null); load(); }} />}
+    </div>
+  );
+}
+
+function ProspectDetailView({ prospect, onClose, onUpdate }: any) {
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState('');
+
+  useEffect(() => { loadNotes(); }, [prospect.id]);
+
+  async function loadNotes() {
+    const { data } = await supabase.from('prospect_notes').select('*').eq('prospect_id', prospect.id).order('created_at', { ascending: false });
+    setNotes(data || []);
+  }
+
+  async function addNote() {
+    if (!newNote.trim()) return;
+    await supabase.from('prospect_notes').insert({ prospect_id: prospect.id, content: newNote });
+    setNewNote('');
+    loadNotes();
+  }
+
+  async function deleteNote(id: string) {
+    if (!confirm('¿Eliminar nota?')) return;
+    await supabase.from('prospect_notes').delete().eq('id', id);
+    loadNotes();
+  }
+
+  return (
+    <Modal open onClose={onClose} title={\`\${prospect.first_name} \${prospect.last_name}\`} size="lg">
+      <div className="space-y-4">
+        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-4">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div><p className="text-xs text-slate-500">DNI</p><p className="font-medium">{prospect.dni || '—'}</p></div>
+            <div><p className="text-xs text-slate-500">Teléfono</p><p className="font-medium">{prospect.phone || '—'}</p></div>
+            <div><p className="text-xs text-slate-500">WhatsApp</p><p className="font-medium">{prospect.whatsapp || '—'}</p></div>
+            <div><p className="text-xs text-slate-500">Email</p><p className="font-medium">{prospect.email || '—'}</p></div>
+            <div><p className="text-xs text-slate-500">Ciudad</p><p className="font-medium">{prospect.city || '—'}</p></div>
+            <div><p className="text-xs text-slate-500">Etapa</p><p className="font-medium">{prospect.commercial_states?.name || '—'}</p></div>
+          </div>
+          {prospect.notes && <p className="text-sm text-slate-700 mt-3 p-3 bg-white rounded-lg">{prospect.notes}</p>}
+        </div>
+
+        <div>
+          <h3 className="font-semibold text-slate-900 mb-3">📝 Historial de notas ({notes.length})</h3>
+          <div className="space-y-2 mb-4 max-h-80 overflow-y-auto">
+            {notes.length === 0 ? <p className="text-sm text-slate-500 text-center py-4">Sin notas aún</p> :
+              notes.map((n) => (
+                <div key={n.id} className="bg-slate-50 rounded-xl p-3">
+                  <div className="flex justify-between items-start">
+                    <p className="text-sm text-slate-700 flex-1">{n.content}</p>
+                    <button onClick={() => deleteNote(n.id)} className="text-red-400 text-xs ml-2">🗑️</button>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">{formatRelativeDate(n.created_at)}</p>
+                </div>
+              ))}
+          </div>
+          <div className="flex gap-2">
+            <input type="text" placeholder="Agregar nota..." value={newNote} onChange={(e) => setNewNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addNote()} className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+            <Button onClick={addNote}>Agregar</Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ProspectForm({ prospect, states, onClose, onSaved }: any) {
+  const [form, setForm] = useState<any>(prospect || { state_id: states[0]?.id });
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault(); setLoading(true);
+    const clean = Object.fromEntries(Object.entries(form).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
+    if (prospect) await supabase.from('prospects').update(clean).eq('id', prospect.id);
+    else await supabase.from('prospects').insert(clean);
+    setLoading(false); onSaved();
+  }
+
+  return (
+    <Modal open onClose={onClose} title={prospect ? 'Editar prospecto' : 'Nuevo prospecto'}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Nombre *" required value={form.first_name||''} onChange={(e) => setForm({...form, first_name: e.target.value})} />
+          <Input label="Apellido *" required value={form.last_name||''} onChange={(e) => setForm({...form, last_name: e.target.value})} />
+          <Input label="DNI" value={form.dni||''} onChange={(e) => setForm({...form, dni: e.target.value})} />
+          <Input label="Teléfono" value={form.phone||''} onChange={(e) => setForm({...form, phone: e.target.value})} />
+          <Input label="WhatsApp" value={form.whatsapp||''} onChange={(e) => setForm({...form, whatsapp: e.target.value})} />
+          <Input label="Email" value={form.email||''} onChange={(e) => setForm({...form, email: e.target.value})} />
+          <Input label="Ciudad" value={form.city||''} onChange={(e) => setForm({...form, city: e.target.value})} />
+          <Input label="Provincia" value={form.province||''} onChange={(e) => setForm({...form, province: e.target.value})} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Etapa</label>
+          <select value={form.state_id||''} onChange={(e) => setForm({...form, state_id: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm">
+            {states.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Observaciones</label>
+          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+        </div>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={loading}>{loading ? 'Guardando...' : 'Guardar'}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}`);
+
+// ============ CLIENTS (arreglar modal de póliza) ============
+write('src/pages/Clients.tsx', `import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
+import { Modal } from '@/components/ui/Modal';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { WhatsAppButton } from '@/components/common/WhatsAppButton';
+import { Loading } from '@/components/common/Loading';
+import { getInitials, formatDate } from '@/lib/utils';
+
+export function Clients() {
+  const [clients, setClients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [editing, setEditing] = useState<any>(null);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [showClientForm, setShowClientForm] = useState(false);
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    const { data } = await supabase.from('clients').select('*').eq('is_archived', false).order('created_at', { ascending: false });
+    setClients(data || []); setLoading(false);
+  }
+
+  async function archive(id: string) {
+    if (!confirm('¿Archivar?')) return;
+    await supabase.from('clients').update({ is_archived: true, archived_at: new Date().toISOString() }).eq('id', id);
+    load();
+  }
+
+  const filtered = clients.filter((c) => {
+    const q = search.toLowerCase();
+    return c.first_name.toLowerCase().includes(q) || c.last_name.toLowerCase().includes(q) || (c.dni||'').includes(q);
+  });
+
+  if (loading) return <Loading />;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div><h1 className="text-3xl font-bold text-slate-900">Clientes</h1><p className="text-sm text-slate-500 mt-1">{clients.length} clientes activos</p></div>
+        <Button onClick={() => { setEditing(null); setShowClientForm(true); }}>+ Nuevo cliente</Button>
+      </div>
+      <input type="text" placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full max-w-md px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filtered.map((c) => (
+          <Card key={c.id} className="p-5 cursor-pointer" onClick={() => setSelectedClient(c)}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-full flex items-center justify-center font-semibold shadow-sm">{getInitials(c.first_name, c.last_name)}</div>
+                <div><h3 className="font-semibold text-slate-900">{c.first_name} {c.last_name}</h3><p className="text-xs text-slate-500">DNI: {c.dni || '—'}</p></div>
+              </div>
+              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                <WhatsAppButton phone={c.whatsapp || c.phone} size="sm" />
+                <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-slate-100">✏️</button>
+              </div>
+            </div>
+            <div className="text-xs text-slate-600 space-y-1">
+              {c.phone && <p>📞 {c.phone}</p>}
+              {c.email && <p>✉️ {c.email}</p>}
+              {c.city && <p>📍 {c.city}</p>}
+            </div>
+            <p className="text-xs text-blue-600 mt-3 font-medium">Ver ficha completa →</p>
+          </Card>
+        ))}
+        {filtered.length === 0 && <p className="col-span-full text-center py-12 text-slate-500">No se encontraron clientes</p>}
+      </div>
+
+      {showClientForm && <ClientForm client={editing} onClose={() => { setShowClientForm(false); setEditing(null); }} onSaved={() => { setShowClientForm(false); setEditing(null); load(); }} />}
+      {selectedClient && <ClientDetailView client={selectedClient} onClose={() => setSelectedClient(null)} onEdit={() => { setEditing(selectedClient); setSelectedClient(null); setShowClientForm(true); }} onArchive={() => { archive(selectedClient.id); setSelectedClient(null); }} onRefresh={load} />}
+    </div>
+  );
+}
+
+function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any) {
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [policies, setPolicies] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [claims, setClaims] = useState<any[]>([]);
+  const [showVehicleForm, setShowVehicleForm] = useState(false);
+  const [showPolicyForm, setShowPolicyForm] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<any>(null);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [types, setTypes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { loadAll(); }, [client.id]);
+
+  async function loadAll() {
+    const [v, p, t, c, co, ty] = await Promise.all([
+      supabase.from('vehicles').select('*').eq('client_id', client.id),
+      supabase.from('policies').select('*, companies(name), insurance_types(id, name), vehicles(brand, model, plate)').eq('client_id', client.id).eq('is_archived', false),
+      supabase.from('tasks').select('*').eq('client_id', client.id).order('created_at', { ascending: false }),
+      supabase.from('claims').select('*').eq('client_id', client.id).order('created_at', { ascending: false }),
+      supabase.from('companies').select('*').eq('is_active', true),
+      supabase.from('insurance_types').select('*').eq('is_active', true),
+    ]);
+    setVehicles(v.data || []); setPolicies(p.data || []); setTasks(t.data || []); setClaims(c.data || []); setCompanies(co.data || []); setTypes(ty.data || []); setLoading(false);
+  }
+
+  async function addVehicle(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    await supabase.from('vehicles').insert({
+      client_id: client.id, brand: form.get('brand'), model: form.get('model'),
+      year: form.get('year') ? parseInt(form.get('year') as string) : null,
+      plate: form.get('plate') || null, engine: form.get('engine') || null,
+      chassis: form.get('chassis') || null, usage: form.get('usage') || null,
+    });
+    setShowVehicleForm(false); loadAll();
+  }
+
+  async function deleteVehicle(id: string) {
+    if (!confirm('¿Eliminar vehículo?')) return;
+    await supabase.from('vehicles').delete().eq('id', id); loadAll();
+  }
+
+  async function deletePolicy(id: string) {
+    if (!confirm('¿Eliminar póliza?')) return;
+    await supabase.from('policies').delete().eq('id', id); loadAll();
+  }
+
+  async function updateTaskStatus(id: string, status: string) {
+    await supabase.from('tasks').update({ status }).eq('id', id); loadAll();
+  }
+
+  async function updateClaimStatus(id: string, status: string) {
+    await supabase.from('claims').update({ status }).eq('id', id); loadAll();
+  }
+
+  return (
+    <>
+      <Modal open onClose={onClose} title={\`\${client.first_name} \${client.last_name}\`} size="2xl">
+        <div className="space-y-5">
+          <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-5">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg">{getInitials(client.first_name, client.last_name)}</div>
+                <div>
+                  <h2 className="text-xl font-bold text-slate-900">{client.first_name} {client.last_name}</h2>
+                  <p className="text-xs text-slate-500">Cliente desde {formatDate(client.created_at)}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <WhatsAppButton phone={client.whatsapp || client.phone} />
+                <Button size="sm" variant="outline" onClick={onEdit}>✏️ Editar</Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div><p className="text-xs text-slate-500">DNI</p><p className="font-medium">{client.dni || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">Fecha nac.</p><p className="font-medium">{formatDate(client.birth_date)}</p></div>
+              <div><p className="text-xs text-slate-500">Teléfono</p><p className="font-medium">{client.phone || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">WhatsApp</p><p className="font-medium">{client.whatsapp || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">Email</p><p className="font-medium">{client.email || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">Ciudad</p><p className="font-medium">{client.city || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">Provincia</p><p className="font-medium">{client.province || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">Dirección</p><p className="font-medium">{client.address || '—'}</p></div>
+            </div>
+            {client.notes && <div className="mt-3 p-3 bg-white rounded-xl"><p className="text-xs text-slate-500 mb-1">Observaciones</p><p className="text-sm text-slate-700">{client.notes}</p></div>}
+          </div>
+
+          <div className="grid grid-cols-4 gap-3">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 text-center border border-blue-200/50"><p className="text-2xl font-bold text-blue-700">{vehicles.length}</p><p className="text-xs text-blue-600 font-medium">Vehículos</p></div>
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-3 text-center border border-emerald-200/50"><p className="text-2xl font-bold text-emerald-700">{policies.length}</p><p className="text-xs text-emerald-600 font-medium">Pólizas</p></div>
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-3 text-center border border-amber-200/50"><p className="text-2xl font-bold text-amber-700">{tasks.filter((t: any) => t.status !== 'Finalizada').length}</p><p className="text-xs text-amber-600 font-medium">Gestiones</p></div>
+            <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl p-3 text-center border border-red-200/50"><p className="text-2xl font-bold text-red-700">{claims.filter((c: any) => c.status !== 'Cerrado').length}</p><p className="text-xs text-red-600 font-medium">Siniestros</p></div>
+          </div>
+
+          {/* VEHÍCULOS */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900">🚗 Vehículos ({vehicles.length})</h3>
+              <Button size="sm" variant="outline" onClick={() => setShowVehicleForm(!showVehicleForm)}>{showVehicleForm ? 'Cancelar' : '+ Agregar'}</Button>
+            </div>
+            {showVehicleForm && (
+              <form onSubmit={addVehicle} className="bg-slate-50 rounded-xl p-4 mb-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="Marca *" name="brand" required />
+                  <Input label="Modelo *" name="model" required />
+                  <Input label="Año" name="year" type="number" />
+                  <Input label="Patente" name="plate" />
+                  <Input label="Motor" name="engine" />
+                  <Input label="Chasis" name="chassis" />
+                </div>
+                <Button type="submit" size="sm">Guardar vehículo</Button>
+              </form>
+            )}
+            {vehicles.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin vehículos</p> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {vehicles.map((v: any) => (
+                  <div key={v.id} className="bg-slate-50 rounded-xl p-3 flex justify-between items-start">
+                    <div><p className="font-medium text-sm">{v.brand} {v.model} {v.year}</p><p className="text-xs text-slate-500">Patente: {v.plate || '—'}</p></div>
+                    <button onClick={() => deleteVehicle(v.id)} className="text-red-400 text-xs">🗑️</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* PÓLIZAS */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900">🛡️ Pólizas ({policies.length})</h3>
+              <Button size="sm" onClick={() => { setEditingPolicy(null); setShowPolicyForm(true); }}>+ Nueva póliza</Button>
+            </div>
+            {policies.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin pólizas</p> : (
+              <div className="space-y-2">
+                {policies.map((p: any) => (
+                  <div key={p.id} className="bg-slate-50 rounded-xl p-3 flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{p.insurance_types?.name}</p>
+                      <p className="text-xs text-slate-500">{p.companies?.name} · {p.policy_number}</p>
+                      {p.vehicles && <p className="text-xs text-blue-600">🚗 {p.vehicles.brand} {p.vehicles.model} {p.vehicles.plate && \`(\${p.vehicles.plate})\`}</p>}
+                      <p className="text-xs text-slate-500 mt-1">Pago: {p.payment_method}{p.payment_day && \` - día \${p.payment_day}\`}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge color="bg-amber-100 text-amber-700">Vence: {formatDate(p.expiration_date)}</Badge>
+                      <div className="flex gap-1">
+                        <button onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">✏️</button>
+                        <button onClick={() => deletePolicy(p.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">🗑️</button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* GESTIONES */}
+          <div>
+            <h3 className="font-semibold text-slate-900 mb-3">✅ Gestiones ({tasks.length})</h3>
+            {tasks.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin gestiones</p> : (
+              <div className="space-y-2">
+                {tasks.map((t: any) => (
+                  <div key={t.id} className="bg-slate-50 rounded-xl p-3 flex justify-between items-start">
+                    <div className="flex-1"><p className="font-medium text-sm">{t.title}</p><p className="text-xs text-slate-500 mt-1">📅 {formatDate(t.due_date)} · {t.priority}</p></div>
+                    <select value={t.status} onChange={(e) => updateTaskStatus(t.id, e.target.value)} className="text-xs px-2 py-1 border border-slate-200 rounded-lg bg-white">
+                      <option value="Pendiente">Pendiente</option><option value="En Proceso">En Proceso</option><option value="Finalizada">Finalizada</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SINIESTROS */}
+          <div>
+            <h3 className="font-semibold text-slate-900 mb-3">⚠️ Siniestros ({claims.length})</h3>
+            {claims.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin siniestros</p> : (
+              <div className="space-y-2">
+                {claims.map((c: any) => (
+                  <div key={c.id} className="bg-slate-50 rounded-xl p-3 flex justify-between items-start">
+                    <div className="flex-1"><p className="text-xs text-slate-500">{formatDate(c.claim_date)}</p>{c.description && <p className="text-sm text-slate-700 mt-1">{c.description}</p>}</div>
+                    <select value={c.status} onChange={(e) => updateClaimStatus(c.id, e.target.value)} className="text-xs px-2 py-1 border border-slate-200 rounded-lg bg-white">
+                      <option value="Abierto">Abierto</option><option value="En Gestión">En Gestión</option><option value="Cerrado">Cerrado</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="danger" onClick={onArchive}>📦 Archivar</Button>
+            <Button variant="outline" onClick={onClose}>Cerrar</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de póliza SEPARADO (no anidado) */}
+      {showPolicyForm && (
+        <PolicyForm
+          policy={editingPolicy}
+          client={client}
+          vehicles={vehicles}
+          companies={companies}
+          types={types}
+          onClose={() => setShowPolicyForm(false)}
+          onSaved={() => { setShowPolicyForm(false); loadAll(); onRefresh?.(); }}
+        />
+      )}
+    </>
+  );
+}
+
+// PolicyForm como modal independiente
+function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSaved }: any) {
+  const [form, setForm] = useState<any>(policy ? {
+    client_id: client.id, company_id: policy.company_id, policy_number: policy.policy_number,
+    insurance_type_id: policy.insurance_type_id, expiration_date: policy.expiration_date?.split('T')[0],
+    payment_method: policy.payment_method, payment_day: policy.payment_day || '',
+    vehicle_id: policy.vehicle_id || '', notes: policy.notes || '',
+  } : { client_id: client.id, payment_method: 'CBU' });
+  const [selectedTypeName, setSelectedTypeName] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (form.insurance_type_id) {
+      const t = types.find((x: any) => x.id === form.insurance_type_id);
+      setSelectedTypeName(t?.name || '');
+    }
+  }, [form.insurance_type_id, types]);
+
+  const requiresVehicle = ['Automotor', 'Motovehículo'].includes(selectedTypeName);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (requiresVehicle && !form.vehicle_id) { alert('⚠️ Debés seleccionar un vehículo'); return; }
+    setLoading(true);
+    const payload = { ...form, payment_day: form.payment_day ? parseInt(form.payment_day) : null, vehicle_id: requiresVehicle ? form.vehicle_id : null };
+    if (policy) await supabase.from('policies').update(payload).eq('id', policy.id);
+    else await supabase.from('policies').insert(payload);
+    setLoading(false); onSaved();
+  }
+
+  return (
+    <Modal open onClose={onClose} title={policy ? 'Editar póliza' : 'Nueva póliza'} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Select label="Compañía *" required value={form.company_id||''} onChange={(e) => setForm({...form, company_id: e.target.value})}
+            options={[{ value: '', label: 'Seleccionar...' }, ...companies.map((c: any) => ({ value: c.id, label: c.name }))]} />
+          <Select label="Tipo de seguro *" required value={form.insurance_type_id||''} onChange={(e) => setForm({...form, insurance_type_id: e.target.value})}
+            options={[{ value: '', label: 'Seleccionar...' }, ...types.map((t: any) => ({ value: t.id, label: t.name }))]} />
+          <Input label="N° Póliza *" required value={form.policy_number||''} onChange={(e) => setForm({...form, policy_number: e.target.value})} />
+          <Input label="Vencimiento *" required type="date" value={form.expiration_date||''} onChange={(e) => setForm({...form, expiration_date: e.target.value})} />
+          <Select label="Forma de pago *" required value={form.payment_method} onChange={(e) => setForm({...form, payment_method: e.target.value})}
+            options={[{ value: 'CBU', label: 'CBU' }, { value: 'Tarjeta', label: 'Tarjeta' }, { value: 'Efectivo', label: 'Efectivo' }, { value: 'Cheques', label: 'Cheques' }]} />
+          {['Efectivo', 'Cheques'].includes(form.payment_method) && (
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">Día de cobro (1-31) *</label>
+              <input type="number" min="1" max="31" required value={form.payment_day || ''} onChange={(e) => setForm({...form, payment_day: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+            </div>
+          )}
+        </div>
+
+        {requiresVehicle && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <label className="block text-sm font-semibold text-blue-900 mb-2">🚗 Vehículo asociado *</label>
+            {vehicles.length === 0 ? <p className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded-lg">⚠️ Primero agregá un vehículo al cliente</p> : (
+              <select required value={form.vehicle_id || ''} onChange={(e) => setForm({...form, vehicle_id: e.target.value})} className="w-full px-3 py-2 border border-blue-300 rounded-xl text-sm bg-white">
+                <option value="">Seleccionar...</option>
+                {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.brand} {v.model} {v.year || ''} {v.plate ? \`- \${v.plate}\` : ''}</option>)}
+              </select>
+            )}
+          </div>
+        )}
+
+        {!requiresVehicle && vehicles.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Vehículo (opcional)</label>
+            <select value={form.vehicle_id || ''} onChange={(e) => setForm({...form, vehicle_id: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
+              <option value="">Sin vehículo</option>
+              {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.brand} {v.model} {v.year || ''} {v.plate ? \`- \${v.plate}\` : ''}</option>)}
+            </select>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Observaciones</label>
+          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+        </div>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={loading}>{loading ? 'Guardando...' : 'Guardar'}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function ClientForm({ client, onClose, onSaved }: any) {
+  const [form, setForm] = useState<any>(client || {});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault(); setError(''); setLoading(true);
+    const clean = Object.fromEntries(Object.entries(form).filter(([_, v]) => v !== '' && v !== null && v !== undefined));
+    try {
+      if (client) { const { error } = await supabase.from('clients').update(clean).eq('id', client.id); if (error) throw error; }
+      else { const { error } = await supabase.from('clients').insert(clean); if (error) throw error; }
+      onSaved();
+    } catch (err: any) { setError(err.message || 'Error al guardar'); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <Modal open onClose={onClose} title={client ? 'Editar cliente' : 'Nuevo cliente'} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <Input label="Nombre *" required value={form.first_name||''} onChange={(e) => setForm({...form, first_name: e.target.value})} />
+          <Input label="Apellido *" required value={form.last_name||''} onChange={(e) => setForm({...form, last_name: e.target.value})} />
+          <Input label="DNI" value={form.dni||''} onChange={(e) => setForm({...form, dni: e.target.value})} />
+          <Input label="Fecha nac." type="date" value={form.birth_date||''} onChange={(e) => setForm({...form, birth_date: e.target.value})} />
+          <Input label="Teléfono" value={form.phone||''} onChange={(e) => setForm({...form, phone: e.target.value})} />
+          <Input label="WhatsApp" value={form.whatsapp||''} onChange={(e) => setForm({...form, whatsapp: e.target.value})} />
+          <Input label="Email" type="email" value={form.email||''} onChange={(e) => setForm({...form, email: e.target.value})} />
+          <Input label="Ciudad" value={form.city||''} onChange={(e) => setForm({...form, city: e.target.value})} />
+          <Input label="Provincia" value={form.province||''} onChange={(e) => setForm({...form, province: e.target.value})} />
+          <Input label="Dirección" value={form.address||''} onChange={(e) => setForm({...form, address: e.target.value})} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">Observaciones</label>
+          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+        </div>
+        {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>Cancelar</Button>
+          <Button type="submit" disabled={loading}>{loading ? 'Guardando...' : client ? 'Actualizar' : 'Crear cliente'}</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}`);
+
+console.log('\n🎉 ¡Update 5 aplicado!');
+console.log('\n📋 Reiniciá: Ctrl+C → npm run dev');

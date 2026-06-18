@@ -1,0 +1,9 @@
+export type User = { id: string; email: string; full_name: string | null; role: string; is_active: boolean; };
+export type Client = { id: string; first_name: string; last_name: string; dni: string|null; birth_date: string|null; phone: string|null; whatsapp: string|null; email: string|null; address: string|null; city: string|null; province: string|null; notes: string|null; is_archived: boolean; archived_at: string|null; created_at: string; };
+export type Prospect = { id: string; first_name: string; last_name: string; dni: string|null; phone: string|null; whatsapp: string|null; email: string|null; city: string|null; province: string|null; notes: string|null; state_id: string|null; is_archived: boolean; created_at: string; commercial_states?: any; };
+export type Policy = { id: string; client_id: string; vehicle_id: string|null; company_id: string; policy_number: string; insurance_type_id: string; expiration_date: string; payment_method: string; payment_date: string|null; notes: string|null; is_archived: boolean; };
+export type Task = { id: string; title: string; description: string|null; status: string; priority: string; due_date: string|null; client_id: string|null; prospect_id: string|null; is_automatic: boolean; created_at: string; };
+export type Claim = { id: string; client_id: string; policy_id: string|null; claim_date: string; status: string; description: string|null; documentation: string|null; };
+export type Company = { id: string; name: string; is_active: boolean; };
+export type InsuranceType = { id: string; name: string; is_active: boolean; };
+export type CommercialState = { id: string; name: string; order_index: number; color: string; is_final: boolean; is_active: boolean; };

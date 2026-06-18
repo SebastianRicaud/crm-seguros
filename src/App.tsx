@@ -1,0 +1,50 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { Layout } from '@/components/layout/Layout';
+import { Login } from '@/pages/Login';
+import { Dashboard } from '@/pages/Dashboard';
+import { Clients } from '@/pages/Clients';
+import { Prospects } from '@/pages/Prospects';
+import { Policies } from '@/pages/Policies';
+import { Tasks } from '@/pages/Tasks';
+import { Claims } from '@/pages/Claims';
+import { Trash } from '@/pages/Trash';
+import { Settings } from '@/pages/Settings';
+import { Loading } from '@/components/common/Loading';
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+function PublicRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <Loading />;
+  if (user) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/prospects" element={<Prospects />} />
+            <Route path="/policies" element={<Policies />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/claims" element={<Claims />} />
+            <Route path="/trash" element={<Trash />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}

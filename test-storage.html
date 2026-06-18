@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Storage</title>
+</head>
+<body>
+  <h1>Test Supabase Storage</h1>
+  <input type="file" id="fileInput" accept=".pdf" />
+  <button onclick="uploadFile()">Subir PDF</button>
+  <div id="result"></div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm'
+    
+    // Reemplazá con tus datos de .env
+    const supabaseUrl = 'TU_SUPABASE_URL_ACA';
+    const supabaseKey = 'TU_SUPABASE_ANON_KEY_ACA';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    window.uploadFile = async function() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      const resultDiv = document.getElementById('result');
+      
+      if (!file) {
+        resultDiv.innerHTML = '<p style="color:red">Seleccioná un archivo</p>';
+        return;
+      }
+
+      try {
+        resultDiv.innerHTML = '<p>Subiendo...</p>';
+        
+        const filePath = `test/${Date.now()}.pdf`;
+        
+        const { data, error } = await supabase.storage
+          .from('vehicle-documents')
+          .upload(filePath, file);
+        
+        if (error) {
+          resultDiv.innerHTML = `<p style="color:red">Error: ${error.message}</p>`;
+          console.error('Error completo:', error);
+        } else {
+          resultDiv.innerHTML = `<p style="color:green">✅ Éxito! Archivo subido: ${data.path}</p>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<p style="color:red">Error: ${err.message}</p>`;
+        console.error('Error completo:', err);
+      }
+    };
+  </script>
+</body>
+</html>
