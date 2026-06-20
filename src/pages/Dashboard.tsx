@@ -31,7 +31,7 @@ export function Dashboard() {
   const [notas, setNotas] = useState<any[]>([]);
   const [renovaciones, setRenovaciones] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarNotes, setCalendarNotes] = useState<any[]>([]);
   const [newCalendarNote, setNewCalendarNote] = useState({ title: '', content: '', color: '#fbbf24' });
 
@@ -164,7 +164,7 @@ export function Dashboard() {
     await supabase.from('calendar_notes').insert({
       title: newCalendarNote.title,
       content: newCalendarNote.content || null,
-      note_date: selectedDate,
+      note_date: selectedDate.toISOString().split('T')[0],
       color: newCalendarNote.color
     });
     setNewCalendarNote({ title: '', content: '', color: '#fbbf24' });
@@ -187,11 +187,11 @@ export function Dashboard() {
     }).forEach(r => {
       alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 });
     });
-    cumpleaños.filter(b => b.days <= 1).forEach(b => {
+    birthdays.filter(b => b.days <= 1).forEach(b => {
       alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 });
     });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
-  }, [cobros, renovaciones, cumpleaños]);
+  }, [cobros, renovaciones, birthdays]);
 
   if (!stats) return <Loading />;
 
@@ -203,7 +203,7 @@ export function Dashboard() {
   const currentYear = selectedDate.getFullYear();
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const calendarDays = [];
+  const calendarDays: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) calendarDays.push(null);
   for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
 
@@ -223,7 +223,7 @@ export function Dashboard() {
               🚨 ALERTAS
             </span>
             <div className="flex gap-4">
-              {urgentAlerts.slice(0, 4).map((a, i) => (
+              {urgentAlerts.slice(0, 4).map((a: any, i: number) => (
                 <span key={i} className="text-sm whitespace-nowrap">{a.message}</span>
               ))}
             </div>
@@ -246,7 +246,7 @@ export function Dashboard() {
         <KPICard label="Cobros pendientes" value={pendingPayments.length} icon="💰" color="from-amber-400 to-orange-500" />
         <KPICard label="Gestiones" value={stats.pendingTasks} icon="✅" color="from-blue-400 to-cyan-500" />
         <KPICard label="Conversión" value={`${conversionRate}%`} icon="🎯" color="from-emerald-400 to-teal-500" />
-        <KPICard label="Cumpleaños" value={cumpleanos.filter(b => b.days <= 7).length} icon="🎂" color="from-pink-400 to-rose-500" />
+        <KPICard label="Cumpleaños" value={birthdays.filter(b => b.days <= 7).length} icon="🎂" color="from-pink-400 to-rose-500" />
         <KPICard label="Siniestros" value={stats.activeClaims} icon="⚠️" color="from-red-400 to-orange-500" />
         <KPICard label="Renovaciones" value={renovaciones.length} icon="🔄" color="from-purple-400 to-indigo-500" />
       </div>
@@ -305,7 +305,7 @@ export function Dashboard() {
                   <p className="text-xs text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
                 ) : (
                   <div className="space-y-2">
-                    {pendingPayments.map((p) => (
+                    {pendingPayments.map((p: any) => (
                       <div key={p.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
@@ -328,7 +328,7 @@ export function Dashboard() {
                   <p className="text-xs text-slate-500 text-center py-6">Sin renovaciones</p>
                 ) : (
                   <div className="space-y-2">
-                    {renovaciones.map((p) => (
+                    {renovaciones.map((p: any) => (
                       <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                         <p className="font-medium text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
                         <p className="text-xs text-slate-500 truncate">{p.companies?.name}</p>
@@ -352,7 +352,7 @@ export function Dashboard() {
                   <p className="text-xs text-slate-500 text-center py-6">Sin gestiones</p>
                 ) : (
                   <div className="space-y-2">
-                    {tasks.map((t) => (
+                    {tasks.map((t: any) => (
                       <div key={t.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                         <p className="font-medium text-slate-800 text-sm truncate">{t.title}</p>
                         {t.due_date && <p className="text-xs text-slate-500 mt-1">{formatDate(t.due_date)}</p>}
@@ -372,7 +372,7 @@ export function Dashboard() {
                   <p className="text-xs text-slate-500 text-center py-6">Sin siniestros</p>
                 ) : (
                   <div className="space-y-2">
-                    {claims.map((c) => (
+                    {claims.map((c: any) => (
                       <div key={c.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                         <p className="font-medium text-slate-800 text-sm truncate">{c.clients?.first_name} {c.clients?.last_name}</p>
                         <p className="text-xs text-slate-500 mt-1">{c.status}</p>
@@ -416,7 +416,7 @@ export function Dashboard() {
                       {day}
                       {dayNotes.length > 0 && (
                         <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-px">
-                          {dayNotes.slice(0, 2).map((n, idx) => (
+                          {dayNotes.slice(0, 2).map((n: any, idx: number) => (
                             <div key={idx} className="w-1 h-1 rounded-full" style={{ backgroundColor: isToday ? 'white' : n.color }} />
                           ))}
                         </div>
@@ -438,7 +438,7 @@ export function Dashboard() {
                   />
                   <Button size="sm" onClick={addCalendarNote} className="text-[10px] px-2 py-1">+</Button>
                 </div>
-                {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n) => (
+                {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
                   <div key={n.id} className="p-2 rounded bg-slate-50 border border-slate-200 text-xs relative">
                     <p className="font-medium text-slate-800">{n.title}</p>
                     <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-1 right-1 text-red-500 text-[10px]">×</button>
@@ -469,7 +469,7 @@ export function Dashboard() {
                 {notas.length === 0 ? (
                   <p className="text-xs text-slate-500 text-center py-4">Sin notas</p>
                 ) : (
-                  notas.map((n) => (
+                  notas.map((n: any) => (
                     <div key={n.id} className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs relative group">
                       <p className="text-slate-800">{n.content}</p>
                       <div className="flex gap-2 mt-1.5">
@@ -493,7 +493,7 @@ export function Dashboard() {
                 <p className="text-xs text-slate-500 text-center py-4">Sin cobros hoy</p>
               ) : (
                 <div className="space-y-2">
-                  {cobros.map((p) => (
+                  {cobros.map((p: any) => (
                     <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                       <p className="font-medium text-slate-800">{p.clients?.first_name} {p.clients?.last_name}</p>
                       <p className="text-slate-500">{p.companies?.name} · Día {p.payment_day}</p>
@@ -519,7 +519,7 @@ export function Dashboard() {
                 <p className="text-xs text-slate-500 text-center py-4">Sin cumpleaños próximos</p>
               ) : (
                 <div className="space-y-2">
-                  {cumpleanos.map((c) => (
+                  {cumpleanos.map((c: any) => (
                     <div key={c.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                       <p className="font-medium text-slate-800">{c.first_name} {c.last_name}</p>
                       <p className="text-pink-700">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
