@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardHeader, CardContent } from '@/components/ui/Card';
-import { formatDate, daysUntilBirthday } from '@/lib/utils';
+import { formatDate, daysUntilBirthday, daysUntil } from '@/lib/utils';
 import { Loading } from '@/components/common/Loading';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -110,28 +110,54 @@ export function Dashboard() {
     setMonthlyData(Object.entries(months).map(([month, clients]) => ({ month, clients })));
   }
 
+  // Alertas urgentes
   useEffect(() => {
     const alerts: any[] = [];
-    payments.filter(p => daysUntil(new Date(new Date().getFullYear(), new Date().getMonth(), p.payment_day)) <= 2).forEach(p => {
-      alerts.push({ type: 'payment', message: `💰 Cobro hoy/mañana: ${p.clients?.first_name} ${p.clients?.last_name} - Día ${p.payment_day}`, priority: 1 });
+    
+    // Cobros próximos (2 días)
+    payments.forEach((p) => {
+      const today = new Date();
+      const paymentDate = new Date(today.getFullYear(), today.getMonth(), p.payment_day);
+      const diff = Math.ceil((paymentDate.getTime() - today.getTime()) / 86400000);
+      if (diff >= 0 && diff <= 2) {
+        alerts.push({ 
+          type: 'payment', 
+          message: `💰 Cobro hoy/mañana: ${p.clients?.first_name} ${p.clients?.last_name} - Día ${p.payment_day}`, 
+          priority: 1 
+        });
+      }
     });
+    
+    // Renovaciones próximas (2 días)
     renewals.filter(r => daysUntil(r.expiration_date) <= 2).forEach(r => {
-      alerts.push({ type: 'renewal', message: `⚠️ Póliza vence pronto: ${r.clients?.first_name} ${r.clients?.last_name} - ${formatDate(r.expiration_date)}`, priority: 2 });
+      alerts.push({ 
+        type: 'renewal', 
+        message: `⚠️ Póliza vence pronto: ${r.clients?.first_name} ${r.clients?.last_name} - ${formatDate(r.expiration_date)}`, 
+        priority: 2 
+      });
     });
+    
+    // Cumpleaños próximos (1 día)
     birthdays.filter(b => b.days <= 1).forEach(b => {
-      alerts.push({ type: 'birthday', message: `🎂 Cumpleaños ${b.days === 0 ? 'HOY' : 'mañana'}: ${b.first_name} ${b.last_name}`, priority: 3 });
+      alerts.push({ 
+        type: 'birthday', 
+        message: `🎂 Cumpleaños ${b.days === 0 ? 'HOY' : 'mañana'}: ${b.first_name} ${b.last_name}`, 
+        priority: 3 
+      });
     });
+    
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
   }, [payments, renewals, birthdays]);
 
   if (!stats) return <Loading />;
 
   const pendingPayments = payments.filter(p => !p.payment_collected);
+  const conversionRate = stats && (stats.clients + stats.prospects) > 0 ? Math.round((stats.clients / (stats.clients + stats.prospects)) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-amber-50/40 text-slate-900 p-4">
       
-      {/* BANNER DE ALERTAS URGENTES - Compacto */}
+      {/* BANNER DE ALERTAS URGENTES */}
       {urgentAlerts.length > 0 && (
         <div className="bg-gradient-to-r from-red-500 via-rose-500 to-red-500 border-b border-red-600 px-4 py-2 rounded-lg shadow-md mb-4">
           <div className="flex items-center gap-3 overflow-x-auto">
@@ -148,7 +174,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* HEADER - Compacto */}
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900">📊 Command Center</h1>
@@ -158,20 +184,20 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* KPI CARDS - Más compactos */}
+      {/* KPI CARDS */}
       <div className="grid grid-cols-6 gap-3 mb-4">
         <KPICard label="Cobros pendientes" value={pendingPayments.length} icon="💰" color="from-amber-400 to-orange-500" />
         <KPICard label="Gestiones" value={stats.pendingTasks} icon="✅" color="from-blue-400 to-cyan-500" />
-        <KPICard label="Conversión" value={`${Math.round((stats.clients / (stats.clients + stats.prospects)) * 100) || 0}%`} icon="🎯" color="from-emerald-400 to-teal-500" />
+        <KPICard label="Conversión" value={`${conversionRate}%`} icon="🎯" color="from-emerald-400 to-teal-500" />
         <KPICard label="Cumpleaños" value={birthdays.filter(b => b.days <= 7).length} icon="🎂" color="from-pink-400 to-rose-500" />
         <KPICard label="Siniestros" value={stats.activeClaims} icon="⚠️" color="from-red-400 to-orange-500" />
         <KPICard label="Renovaciones" value={renewals.length} icon="🔄" color="from-purple-400 to-indigo-500" />
       </div>
 
-      {/* CONTENIDO PRINCIPAL - Grid optimizado */}
+      {/* CONTENIDO PRINCIPAL */}
       <div className="grid grid-cols-12 gap-4">
         
-        {/* COLUMNA IZQUIERDA - Widgets compactos */}
+        {/* COLUMNA IZQUIERDA */}
         <div className="col-span-8 space-y-3">
           
           {/* FILA 1: Gráficos */}
@@ -332,7 +358,6 @@ function MiDiaCompacto({ payments, birthdays, tasks, renewals }: any) {
     cobros: true,
     cumpleanos: true,
     tareas: true,
-    notas: false,
     renovaciones: false,
   });
 
