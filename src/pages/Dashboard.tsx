@@ -25,11 +25,8 @@ export function Dashboard() {
   const [urgentAlerts, setUrgentAlerts] = useState<any[]>([]);
   
   // Mi Día
-  const [cobros, setCobros] = useState<any[]>([]);
-  const [cumpleanos, setCumpleanos] = useState<any[]>([]);
   const [tareas, setTareas] = useState<any[]>([]);
   const [notas, setNotas] = useState<any[]>([]);
-  const [renovaciones, setRenovaciones] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarNotes, setCalendarNotes] = useState<any[]>([]);
@@ -64,13 +61,12 @@ export function Dashboard() {
     const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
     const { data } = await supabase.from('policies').select('*, clients(first_name, last_name), companies(name)')
       .eq('is_archived', false).gte('expiration_date', today).lte('expiration_date', in7).order('expiration_date');
-    setRenovaciones(data || []);
+    setRenewals(data || []);
   }
 
   async function loadBirthdays() {
     const { data } = await supabase.from('clients').select('id, first_name, last_name, birth_date').eq('is_archived', false).not('birth_date', 'is', null);
     const upcoming = (data || []).map((c) => ({ ...c, days: daysUntilBirthday(c.birth_date) })).filter((c) => c.days <= 15).sort((a, b) => a.days - b.days).slice(0, 5);
-    setCumpleanos(upcoming);
     setBirthdays(upcoming);
   }
 
@@ -79,7 +75,6 @@ export function Dashboard() {
     const { data } = await supabase.from('policies').select('*, clients(first_name, last_name), companies(name)')
       .in('payment_method', ['Efectivo', 'Cheques']).eq('is_archived', false).not('payment_day', 'is', null).order('payment_day');
     const filtered = (data || []).filter((p: any) => { const diff = p.payment_day - currentDay; return diff >= 0 && diff <= 2; });
-    setCobros(filtered);
     setPayments(filtered);
   }
 
@@ -178,10 +173,10 @@ export function Dashboard() {
 
   useEffect(() => {
     const alerts: any[] = [];
-    cobros.forEach((p) => {
+    payments.forEach((p) => {
       alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name} ${p.clients?.last_name}`, priority: 1 });
     });
-    renovaciones.filter(r => {
+    renewals.filter(r => {
       const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000);
       return days <= 2;
     }).forEach(r => {
@@ -191,11 +186,11 @@ export function Dashboard() {
       alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 });
     });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
-  }, [cobros, renovaciones, birthdays]);
+  }, [payments, renewals, birthdays]);
 
   if (!stats) return <Loading />;
 
-  const pendingPayments = cobros.filter(p => !p.payment_collected);
+  const pendingPayments = payments.filter(p => !p.payment_collected);
   const conversionRate = stats && (stats.clients + stats.prospects) > 0 ? Math.round((stats.clients / (stats.clients + stats.prospects)) * 100) : 0;
 
   // Calendario
@@ -248,7 +243,7 @@ export function Dashboard() {
         <KPICard label="Conversión" value={`${conversionRate}%`} icon="🎯" color="from-emerald-400 to-teal-500" />
         <KPICard label="Cumpleaños" value={birthdays.filter(b => b.days <= 7).length} icon="🎂" color="from-pink-400 to-rose-500" />
         <KPICard label="Siniestros" value={stats.activeClaims} icon="⚠️" color="from-red-400 to-orange-500" />
-        <KPICard label="Renovaciones" value={renovaciones.length} icon="🔄" color="from-purple-400 to-indigo-500" />
+        <KPICard label="Renovaciones" value={renewals.length} icon="🔄" color="from-purple-400 to-indigo-500" />
       </div>
 
       {/* CONTENIDO PRINCIPAL - Grid de 3 columnas */}
@@ -294,41 +289,18 @@ export function Dashboard() {
             </Card>
           </div>
 
-          {/* FILA 2: Cobros y Renovaciones */}
+          {/* FILA 2: Renovaciones y Tareas */}
           <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100">
-                <h3 className="font-semibold text-amber-900 text-sm">💰 Cobros próximos (2 días)</h3>
-              </CardHeader>
-              <CardContent className="p-4 max-h-40 overflow-y-auto">
-                {pendingPayments.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
-                ) : (
-                  <div className="space-y-2">
-                    {pendingPayments.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                          <p className="text-xs text-slate-500 truncate">{p.companies?.name}</p>
-                        </div>
-                        <Badge color="bg-amber-100 text-amber-700 text-[10px]">Día {p.payment_day}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             <Card>
               <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
                 <h3 className="font-semibold text-slate-800 text-sm">🔄 Renovaciones (7 días)</h3>
               </CardHeader>
               <CardContent className="p-4 max-h-40 overflow-y-auto">
-                {renovaciones.length === 0 ? (
+                {renewals.length === 0 ? (
                   <p className="text-xs text-slate-500 text-center py-6">Sin renovaciones</p>
                 ) : (
                   <div className="space-y-2">
-                    {renovaciones.map((p: any) => (
+                    {renewals.map((p: any) => (
                       <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                         <p className="font-medium text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
                         <p className="text-xs text-slate-500 truncate">{p.companies?.name}</p>
@@ -339,15 +311,12 @@ export function Dashboard() {
                 )}
               </CardContent>
             </Card>
-          </div>
 
-          {/* FILA 3: Tareas y Siniestros */}
-          <div className="grid grid-cols-2 gap-4">
             <Card>
               <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100">
                 <h3 className="font-semibold text-slate-800 text-sm">✅ Gestiones pendientes</h3>
               </CardHeader>
-              <CardContent className="p-4 max-h-36 overflow-y-auto">
+              <CardContent className="p-4 max-h-40 overflow-y-auto">
                 {tasks.length === 0 ? (
                   <p className="text-xs text-slate-500 text-center py-6">Sin gestiones</p>
                 ) : (
@@ -362,32 +331,59 @@ export function Dashboard() {
                 )}
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100">
-                <h3 className="font-semibold text-slate-800 text-sm">⚠️ Siniestros activos</h3>
-              </CardHeader>
-              <CardContent className="p-4 max-h-36 overflow-y-auto">
-                {claims.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">Sin siniestros</p>
-                ) : (
-                  <div className="space-y-2">
-                    {claims.map((c: any) => (
-                      <div key={c.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                        <p className="font-medium text-slate-800 text-sm truncate">{c.clients?.first_name} {c.clients?.last_name}</p>
-                        <p className="text-xs text-slate-500 mt-1">{c.status}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
+
+          {/* FILA 3: Siniestros */}
+          <Card>
+            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100">
+              <h3 className="font-semibold text-slate-800 text-sm">⚠️ Siniestros activos</h3>
+            </CardHeader>
+            <CardContent className="p-4 max-h-36 overflow-y-auto">
+              {claims.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-6">Sin siniestros</p>
+              ) : (
+                <div className="space-y-2">
+                  {claims.map((c: any) => (
+                    <div key={c.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                      <p className="font-medium text-slate-800 text-sm truncate">{c.clients?.first_name} {c.clients?.last_name}</p>
+                      <p className="text-xs text-slate-500 mt-1">{c.status}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* COLUMNA 9-12: Mi Día (compacto) */}
         <div className="col-span-4 space-y-4">
           
+          {/* COBROS DE HOY */}
+          <Card>
+            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-100">
+              <h3 className="font-semibold text-slate-800 text-sm">💰 Cobros próximos</h3>
+            </CardHeader>
+            <CardContent className="p-3 max-h-48 overflow-y-auto">
+              {pendingPayments.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">✨ Sin cobros próximos</p>
+              ) : (
+                <div className="space-y-2">
+                  {pendingPayments.map((p: any) => (
+                    <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
+                      <p className="font-medium text-slate-800">{p.clients?.first_name} {p.clients?.last_name}</p>
+                      <p className="text-slate-500">{p.companies?.name} · Día {p.payment_day}</p>
+                      {!p.payment_collected && (
+                        <Button size="sm" onClick={() => markCobroDone(p.id)} className="mt-1.5 bg-emerald-600 hover:bg-emerald-700 text-[10px] px-2 py-0.5">
+                          ✓ Cobrado
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* CALENDARIO */}
           <Card>
             <CardHeader className="py-2.5 px-4 border-b border-slate-100">
@@ -465,7 +461,7 @@ export function Dashboard() {
                 />
                 <Button size="sm" onClick={addNote} className="text-[10px] px-2 py-1.5">+</Button>
               </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+              <div className="space-y-2 max-h-40 overflow-y-auto">
                 {notas.length === 0 ? (
                   <p className="text-xs text-slate-500 text-center py-4">Sin notas</p>
                 ) : (
@@ -483,43 +479,17 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* COBROS DE HOY */}
-          <Card>
-            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-100">
-              <h3 className="font-semibold text-slate-800 text-sm">💰 Cobros de hoy</h3>
-            </CardHeader>
-            <CardContent className="p-3 max-h-40 overflow-y-auto">
-              {cobros.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">Sin cobros hoy</p>
-              ) : (
-                <div className="space-y-2">
-                  {cobros.map((p: any) => (
-                    <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                      <p className="font-medium text-slate-800">{p.clients?.first_name} {p.clients?.last_name}</p>
-                      <p className="text-slate-500">{p.companies?.name} · Día {p.payment_day}</p>
-                      {!p.payment_collected && (
-                        <Button size="sm" onClick={() => markCobroDone(p.id)} className="mt-1.5 bg-emerald-600 hover:bg-emerald-700 text-[10px] px-2 py-0.5">
-                          ✓ Cobrado
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* CUMPLEAÑOS */}
           <Card>
             <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-pink-50 to-rose-50 border-b border-pink-100">
               <h3 className="font-semibold text-slate-800 text-sm">🎂 Cumpleaños</h3>
             </CardHeader>
             <CardContent className="p-3 max-h-32 overflow-y-auto">
-              {cumpleanos.length === 0 ? (
+              {birthdays.length === 0 ? (
                 <p className="text-xs text-slate-500 text-center py-4">Sin cumpleaños próximos</p>
               ) : (
                 <div className="space-y-2">
-                  {cumpleanos.map((c: any) => (
+                  {birthdays.map((c: any) => (
                     <div key={c.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
                       <p className="font-medium text-slate-800">{c.first_name} {c.last_name}</p>
                       <p className="text-pink-700">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
