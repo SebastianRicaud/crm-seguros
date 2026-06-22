@@ -2,15 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Card, CardHeader, CardContent } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { formatDate, daysUntilBirthday } from '@/lib/utils';
 import { Loading } from '@/components/common/Loading';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line
+  LineChart, Line
 } from 'recharts';
-
-const WARM_COLORS = ['#f59e0b', '#fb923c', '#ef4444', '#ec4899', '#a855f7', '#14b8a6', '#06b6d4'];
 
 export function Dashboard() {
   const [stats, setStats] = useState<any>(null);
@@ -20,12 +18,10 @@ export function Dashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [claims, setClaims] = useState<any[]>([]);
   const [policiesByCompany, setPoliciesByCompany] = useState<any[]>([]);
-  const [policiesByType, setPoliciesByType] = useState<any[]>([]);
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [urgentAlerts, setUrgentAlerts] = useState<any[]>([]);
   
   // Mi Día
-  const [tareas, setTareas] = useState<any[]>([]);
   const [notas, setNotas] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -37,8 +33,8 @@ export function Dashboard() {
   async function loadAll() {
     await Promise.all([
       loadStats(), loadRenewals(), loadBirthdays(), loadPayments(),
-      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadPoliciesByType(), 
-      loadMonthlyData(), loadMiDia(), loadCalendarNotes()
+      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadMonthlyData(), 
+      loadMiDia(), loadCalendarNotes()
     ]);
   }
 
@@ -58,9 +54,9 @@ export function Dashboard() {
 
   async function loadRenewals() {
     const today = new Date().toISOString().split('T')[0];
-    const in7 = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
-    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name), companies(name)')
-      .eq('is_archived', false).gte('expiration_date', today).lte('expiration_date', in7).order('expiration_date');
+    const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name)')
+      .eq('is_archived', false).gte('expiration_date', today).lte('expiration_date', in30).order('expiration_date');
     setRenewals(data || []);
   }
 
@@ -72,7 +68,7 @@ export function Dashboard() {
 
   async function loadPayments() {
     const currentDay = new Date().getDate();
-    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name), companies(name)')
+    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name)')
       .in('payment_method', ['Efectivo', 'Cheques']).eq('is_archived', false).not('payment_day', 'is', null).order('payment_day');
     const filtered = (data || []).filter((p: any) => { const diff = p.payment_day - currentDay; return diff >= 0 && diff <= 2; });
     setPayments(filtered);
@@ -80,7 +76,6 @@ export function Dashboard() {
 
   async function loadTasks() {
     const { data } = await supabase.from('tasks').select('*').neq('status', 'Finalizada').order('due_date').limit(5);
-    setTareas(data || []);
     setTasks(data || []);
   }
 
@@ -94,13 +89,6 @@ export function Dashboard() {
     const counts: Record<string, number> = {};
     (data || []).forEach((p: any) => { const n = p.companies?.name || 'Sin compañía'; counts[n] = (counts[n] || 0) + 1; });
     setPoliciesByCompany(Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 6));
-  }
-
-  async function loadPoliciesByType() {
-    const { data } = await supabase.from('policies').select('insurance_types(name)').eq('is_archived', false);
-    const counts: Record<string, number> = {};
-    (data || []).forEach((p: any) => { const n = p.insurance_types?.name || 'Otro'; counts[n] = (counts[n] || 0) + 1; });
-    setPoliciesByType(Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value));
   }
 
   async function loadMonthlyData() {
@@ -174,7 +162,7 @@ export function Dashboard() {
   useEffect(() => {
     const alerts: any[] = [];
     payments.forEach((p) => {
-      alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name} ${p.clients?.last_name}`, priority: 1 });
+      alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 });
     });
     renewals.filter(r => {
       const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000);
@@ -207,11 +195,28 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-amber-50/30 p-4 space-y-4">
+    <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">📊 Dashboard</h1>
+          <p className="text-sm text-slate-600 mt-1">
+            Vista general de la cartera y gestión del período
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <select className="px-4 py-2 border border-slate-400 rounded-lg bg-white text-sm font-medium text-slate-700">
+            <option>Este mes</option>
+            <option>Últimos 3 meses</option>
+            <option>Último año</option>
+          </select>
+        </div>
+      </div>
+
       {/* ALERTAS */}
       {urgentAlerts.length > 0 && (
-        <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-4 py-2.5 rounded-xl shadow-md">
+        <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-6 py-3 rounded-xl shadow-md border border-red-600">
           <div className="flex items-center gap-3 overflow-x-auto">
             <span className="font-bold text-sm whitespace-nowrap flex items-center gap-2">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
@@ -226,173 +231,162 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* HEADER */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">📊 Command Center</h1>
-          <p className="text-sm text-slate-500 mt-0.5 capitalize">
-            {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </p>
-        </div>
+      {/* KPI CARDS - Estilo Sherpa */}
+      <div className="grid grid-cols-4 gap-4">
+        <KPICard 
+          label="Pólizas en cartera" 
+          value={stats.policies} 
+          icon="📋"
+          color="bg-blue-50"
+          iconColor="text-blue-600"
+          borderColor="border-slate-400"
+        />
+        <KPICard 
+          label="Clientes activos" 
+          value={stats.clients} 
+          sublabel="con pólizas activas"
+          icon="👥"
+          color="bg-emerald-50"
+          iconColor="text-emerald-600"
+          borderColor="border-slate-400"
+        />
+        <KPICard 
+          label="Movimiento del período" 
+          value=""
+          customContent={
+            <div className="flex gap-4 mt-2">
+              <div className="flex items-center gap-1">
+                <span className="text-emerald-600">▲</span>
+                <span className="font-bold text-emerald-700">11</span>
+                <span className="text-xs text-slate-600">ALTAS</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-red-600">▼</span>
+                <span className="font-bold text-red-700">4</span>
+                <span className="text-xs text-slate-600">BAJAS</span>
+              </div>
+            </div>
+          }
+          icon="📊"
+          color="bg-purple-50"
+          iconColor="text-purple-600"
+          borderColor="border-slate-400"
+        />
+        <KPICard 
+          label="Pólizas a renovar" 
+          value={renewals.length} 
+          sublabel="próximos 30 días"
+          icon="🔄"
+          color="bg-cyan-50"
+          iconColor="text-cyan-600"
+          borderColor="border-slate-400"
+        />
       </div>
 
-      {/* KPI CARDS */}
-      <div className="grid grid-cols-6 gap-3">
-        <KPICard label="Cobros pendientes" value={pendingPayments.length} icon="💰" color="from-amber-400 to-orange-500" />
-        <KPICard label="Gestiones" value={stats.pendingTasks} icon="✅" color="from-blue-400 to-cyan-500" />
-        <KPICard label="Conversión" value={`${conversionRate}%`} icon="🎯" color="from-emerald-400 to-teal-500" />
-        <KPICard label="Cumpleaños" value={birthdays.filter(b => b.days <= 7).length} icon="🎂" color="from-pink-400 to-rose-500" />
-        <KPICard label="Siniestros" value={stats.activeClaims} icon="⚠️" color="from-red-400 to-orange-500" />
-        <KPICard label="Renovaciones" value={renewals.length} icon="🔄" color="from-purple-400 to-indigo-500" />
-      </div>
-
-      {/* CONTENIDO PRINCIPAL - Grid de 3 columnas */}
-      <div className="grid grid-cols-12 gap-4">
+      {/* CONTENIDO PRINCIPAL - Grid */}
+      <div className="grid grid-cols-12 gap-6">
         
-        {/* COLUMNA 1-8: Gráficos y estadísticas */}
-        <div className="col-span-8 space-y-4">
+        {/* COLUMNA 1-8: Gráficos y datos */}
+        <div className="col-span-8 space-y-6">
           
-          {/* FILA 1: Gráficos principales */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="py-2.5 px-4 border-b border-slate-100">
-                <h3 className="font-semibold text-slate-800 text-sm">🏢 Pólizas por compañía</h3>
-              </CardHeader>
-              <CardContent className="p-4 h-56">
+          {/* Gráficos */}
+          <div className="grid grid-cols-2 gap-6">
+            <Card className="border-2 border-slate-400 bg-white">
+              <div className="p-4 border-b-2 border-slate-300">
+                <h3 className="font-bold text-slate-800">🏢 Pólizas por compañía</h3>
+              </div>
+              <div className="p-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
-                    <XAxis type="number" stroke="#78716c" fontSize={10} />
-                    <YAxis type="category" dataKey="name" stroke="#78716c" fontSize={10} width={90} />
-                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e7e5e4', borderRadius: '6px', fontSize: '11px' }} />
-                    <Bar dataKey="count" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                    <XAxis type="number" stroke="#475569" fontSize={11} />
+                    <YAxis type="category" dataKey="name" stroke="#475569" fontSize={11} width={100} />
+                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px' }} />
+                    <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader className="py-2.5 px-4 border-b border-slate-100">
-                <h3 className="font-semibold text-slate-800 text-sm">📈 Evolución clientes</h3>
-              </CardHeader>
-              <CardContent className="p-4 h-56">
+            <Card className="border-2 border-slate-400 bg-white">
+              <div className="p-4 border-b-2 border-slate-300">
+                <h3 className="font-bold text-slate-800">📈 Evolución clientes</h3>
+              </div>
+              <div className="p-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e7e5e4" />
-                    <XAxis dataKey="month" stroke="#78716c" fontSize={10} />
-                    <YAxis stroke="#78716c" fontSize={10} />
-                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '1px solid #e7e5e4', borderRadius: '6px', fontSize: '11px' }} />
-                    <Line type="monotone" dataKey="clients" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 4 }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+                    <XAxis dataKey="month" stroke="#475569" fontSize={11} />
+                    <YAxis stroke="#475569" fontSize={11} />
+                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px' }} />
+                    <Line type="monotone" dataKey="clients" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
-              </CardContent>
+              </div>
             </Card>
           </div>
 
-          {/* FILA 2: Renovaciones y Tareas */}
-          <div className="grid grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
-                <h3 className="font-semibold text-slate-800 text-sm">🔄 Renovaciones (7 días)</h3>
-              </CardHeader>
-              <CardContent className="p-4 max-h-40 overflow-y-auto">
-                {renewals.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">Sin renovaciones</p>
+          {/* Cobros y Tareas */}
+          <div className="grid grid-cols-2 gap-6">
+            <Card className="border-2 border-slate-400 bg-white">
+              <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
+                <h3 className="font-bold text-slate-800">💰 Cobros próximos (2 días)</h3>
+              </div>
+              <div className="p-4 max-h-48 overflow-y-auto">
+                {pendingPayments.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
                 ) : (
                   <div className="space-y-2">
-                    {renewals.map((p: any) => (
-                      <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                        <p className="font-medium text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                        <p className="text-xs text-slate-500 truncate">{p.companies?.name}</p>
-                        <p className="text-purple-700 text-xs mt-1">{formatDate(p.expiration_date)}</p>
+                    {pendingPayments.map((p: any) => (
+                      <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-2 border-slate-300">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
+                          <p className="text-xs text-slate-600 truncate">Día {p.payment_day}</p>
+                        </div>
+                        <Button size="sm" onClick={() => markCobroDone(p.id)} className="bg-emerald-600 hover:bg-emerald-700 text-xs px-3 py-1.5 border-2 border-emerald-700">
+                          ✓ Cobrado
+                        </Button>
                       </div>
                     ))}
                   </div>
                 )}
-              </CardContent>
+              </div>
             </Card>
 
-            <Card>
-              <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100">
-                <h3 className="font-semibold text-slate-800 text-sm">✅ Gestiones pendientes</h3>
-              </CardHeader>
-              <CardContent className="p-4 max-h-40 overflow-y-auto">
+            <Card className="border-2 border-slate-400 bg-white">
+              <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-blue-50 to-cyan-50">
+                <h3 className="font-bold text-slate-800">✅ Gestiones pendientes</h3>
+              </div>
+              <div className="p-4 max-h-48 overflow-y-auto">
                 {tasks.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-6">Sin gestiones</p>
+                  <p className="text-sm text-slate-500 text-center py-6">Sin gestiones</p>
                 ) : (
                   <div className="space-y-2">
                     {tasks.map((t: any) => (
-                      <div key={t.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                        <p className="font-medium text-slate-800 text-sm truncate">{t.title}</p>
-                        {t.due_date && <p className="text-xs text-slate-500 mt-1">{formatDate(t.due_date)}</p>}
+                      <div key={t.id} className="p-3 bg-slate-50 rounded-lg border-2 border-slate-300">
+                        <p className="font-semibold text-slate-800 text-sm truncate">{t.title}</p>
+                        {t.due_date && <p className="text-xs text-slate-600 mt-1">{formatDate(t.due_date)}</p>}
                       </div>
                     ))}
                   </div>
                 )}
-              </CardContent>
+              </div>
             </Card>
           </div>
-
-          {/* FILA 3: Siniestros */}
-          <Card>
-            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100">
-              <h3 className="font-semibold text-slate-800 text-sm">⚠️ Siniestros activos</h3>
-            </CardHeader>
-            <CardContent className="p-4 max-h-36 overflow-y-auto">
-              {claims.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-6">Sin siniestros</p>
-              ) : (
-                <div className="space-y-2">
-                  {claims.map((c: any) => (
-                    <div key={c.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                      <p className="font-medium text-slate-800 text-sm truncate">{c.clients?.first_name} {c.clients?.last_name}</p>
-                      <p className="text-xs text-slate-500 mt-1">{c.status}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
-        {/* COLUMNA 9-12: Mi Día (compacto) */}
-        <div className="col-span-4 space-y-4">
+        {/* COLUMNA 9-12: Calendario y Mi Día */}
+        <div className="col-span-4 space-y-6">
           
-          {/* COBROS DE HOY */}
-          <Card>
-            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-emerald-50 to-green-50 border-b border-emerald-100">
-              <h3 className="font-semibold text-slate-800 text-sm">💰 Cobros próximos</h3>
-            </CardHeader>
-            <CardContent className="p-3 max-h-48 overflow-y-auto">
-              {pendingPayments.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">✨ Sin cobros próximos</p>
-              ) : (
-                <div className="space-y-2">
-                  {pendingPayments.map((p: any) => (
-                    <div key={p.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                      <p className="font-medium text-slate-800">{p.clients?.first_name} {p.clients?.last_name}</p>
-                      <p className="text-slate-500">{p.companies?.name} · Día {p.payment_day}</p>
-                      {!p.payment_collected && (
-                        <Button size="sm" onClick={() => markCobroDone(p.id)} className="mt-1.5 bg-emerald-600 hover:bg-emerald-700 text-[10px] px-2 py-0.5">
-                          ✓ Cobrado
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* CALENDARIO */}
-          <Card>
-            <CardHeader className="py-2.5 px-4 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-800 text-sm">📅 Calendario</h3>
-            </CardHeader>
-            <CardContent className="p-3">
-              <div className="grid grid-cols-7 gap-1 mb-2">
-                {['D','L','M','M','J','V','S'].map((d) => (
-                  <div key={d} className="text-center text-[10px] font-semibold text-slate-500 py-1">{d}</div>
+          {/* CALENDARIO - Estilo Sherpa */}
+          <Card className="border-2 border-slate-400 bg-white">
+            <div className="p-4 border-b-2 border-slate-300">
+              <h3 className="font-bold text-slate-800">📅 Eventos destacados de este mes</h3>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-7 gap-1 mb-3">
+                {['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((d) => (
+                  <div key={d} className="text-center text-[10px] font-bold text-slate-600 py-2">{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -405,15 +399,17 @@ export function Dashboard() {
                     <button
                       key={i}
                       onClick={() => setSelectedDate(new Date(currentYear, currentMonth, day))}
-                      className={`aspect-square rounded-md text-[10px] font-medium transition-all relative ${
-                        isToday ? 'bg-blue-500 text-white' : 'hover:bg-slate-100 text-slate-700'
+                      className={`aspect-square rounded-lg text-xs font-semibold transition-all relative border-2 ${
+                        isToday 
+                          ? 'bg-blue-600 text-white border-blue-700' 
+                          : 'hover:bg-slate-100 text-slate-700 border-slate-300'
                       }`}
                     >
                       {day}
-                      {dayNotes.length > 0 && (
+                      {dayNotes.length > 0 && !isToday && (
                         <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-px">
                           {dayNotes.slice(0, 2).map((n: any, idx: number) => (
-                            <div key={idx} className="w-1 h-1 rounded-full" style={{ backgroundColor: isToday ? 'white' : n.color }} />
+                            <div key={idx} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: n.color }} />
                           ))}
                         </div>
                       )}
@@ -422,34 +418,36 @@ export function Dashboard() {
                 })}
               </div>
               
-              {/* Notas del día seleccionado */}
-              <div className="mt-3 space-y-2">
-                <div className="flex gap-1">
+              {/* Notas del día */}
+              <div className="mt-4 space-y-2">
+                <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Nota rápida..."
+                    placeholder="Evento..."
                     value={newCalendarNote.title}
                     onChange={(e) => setNewCalendarNote({...newCalendarNote, title: e.target.value})}
-                    className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs"
+                    className="flex-1 px-3 py-2 border-2 border-slate-400 rounded-lg text-xs font-medium"
                   />
-                  <Button size="sm" onClick={addCalendarNote} className="text-[10px] px-2 py-1">+</Button>
+                  <Button size="sm" onClick={addCalendarNote} className="text-xs px-3 py-2 border-2 border-slate-400 bg-slate-800 text-white hover:bg-slate-900">
+                    +
+                  </Button>
                 </div>
                 {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
-                  <div key={n.id} className="p-2 rounded bg-slate-50 border border-slate-200 text-xs relative">
-                    <p className="font-medium text-slate-800">{n.title}</p>
-                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-1 right-1 text-red-500 text-[10px]">×</button>
+                  <div key={n.id} className="p-2.5 rounded-lg border-2 border-slate-300 bg-slate-50 text-xs relative">
+                    <p className="font-semibold text-slate-800">{n.title}</p>
+                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-1 right-1 text-red-600 text-xs font-bold">×</button>
                   </div>
                 ))}
               </div>
-            </CardContent>
+            </div>
           </Card>
 
           {/* NOTAS RÁPIDAS */}
-          <Card>
-            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-amber-50 to-yellow-50 border-b border-amber-100">
-              <h3 className="font-semibold text-slate-800 text-sm">📝 Notas rápidas</h3>
-            </CardHeader>
-            <CardContent className="p-3">
+          <Card className="border-2 border-slate-400 bg-white">
+            <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-yellow-50">
+              <h3 className="font-bold text-slate-800">📝 Notas rápidas</h3>
+            </div>
+            <div className="p-4">
               <div className="flex gap-2 mb-3">
                 <input
                   type="text"
@@ -457,47 +455,53 @@ export function Dashboard() {
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addNote()}
-                  className="flex-1 px-2 py-1.5 border border-slate-300 rounded-lg text-xs"
+                  className="flex-1 px-3 py-2 border-2 border-slate-400 rounded-lg text-xs font-medium"
                 />
-                <Button size="sm" onClick={addNote} className="text-[10px] px-2 py-1.5">+</Button>
+                <Button size="sm" onClick={addNote} className="text-xs px-3 py-2 border-2 border-slate-400 bg-slate-800 text-white hover:bg-slate-900">
+                  +
+                </Button>
               </div>
-              <div className="space-y-2 max-h-40 overflow-y-auto">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {notas.length === 0 ? (
                   <p className="text-xs text-slate-500 text-center py-4">Sin notas</p>
                 ) : (
                   notas.map((n: any) => (
-                    <div key={n.id} className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs relative group">
-                      <p className="text-slate-800">{n.content}</p>
-                      <div className="flex gap-2 mt-1.5">
-                        <Button size="sm" variant="outline" onClick={() => markNoteDone(n.id)} className="text-[10px] px-2 py-0.5">✓</Button>
-                        <button onClick={() => deleteNote(n.id)} className="text-red-600 hover:text-red-700 text-[10px]">Eliminar</button>
+                    <div key={n.id} className="p-3 bg-amber-50 rounded-lg border-2 border-amber-300 text-xs">
+                      <p className="font-semibold text-slate-800 mb-2">{n.content}</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => markNoteDone(n.id)} className="text-[10px] px-2 py-1 border-2 border-slate-400">
+                          ✓ Hecho
+                        </Button>
+                        <button onClick={() => deleteNote(n.id)} className="text-red-600 hover:text-red-700 text-[10px] font-semibold">
+                          Eliminar
+                        </button>
                       </div>
                     </div>
                   ))
                 )}
               </div>
-            </CardContent>
+            </div>
           </Card>
 
           {/* CUMPLEAÑOS */}
-          <Card>
-            <CardHeader className="py-2.5 px-4 bg-gradient-to-r from-pink-50 to-rose-50 border-b border-pink-100">
-              <h3 className="font-semibold text-slate-800 text-sm">🎂 Cumpleaños</h3>
-            </CardHeader>
-            <CardContent className="p-3 max-h-32 overflow-y-auto">
+          <Card className="border-2 border-slate-400 bg-white">
+            <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-pink-50 to-rose-50">
+              <h3 className="font-bold text-slate-800">🎂 Cumpleaños</h3>
+            </div>
+            <div className="p-4 max-h-40 overflow-y-auto">
               {birthdays.length === 0 ? (
                 <p className="text-xs text-slate-500 text-center py-4">Sin cumpleaños próximos</p>
               ) : (
                 <div className="space-y-2">
                   {birthdays.map((c: any) => (
-                    <div key={c.id} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                      <p className="font-medium text-slate-800">{c.first_name} {c.last_name}</p>
-                      <p className="text-pink-700">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
+                    <div key={c.id} className="p-3 bg-slate-50 rounded-lg border-2 border-slate-300 text-xs">
+                      <p className="font-semibold text-slate-800">{c.first_name} {c.last_name}</p>
+                      <p className="text-pink-700 font-semibold">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
                     </div>
                   ))}
                 </div>
               )}
-            </CardContent>
+            </div>
           </Card>
         </div>
       </div>
@@ -505,12 +509,23 @@ export function Dashboard() {
   );
 }
 
-function KPICard({ label, value, icon, color }: any) {
+function KPICard({ label, value, sublabel, customContent, icon, color, iconColor, borderColor }: any) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-3.5 hover:shadow-md transition-all">
-      <div className={`w-9 h-9 bg-gradient-to-br ${color} rounded-lg flex items-center justify-center mb-2.5 text-lg shadow-sm`}>{icon}</div>
-      <p className="text-2xl font-bold text-slate-900">{value}</p>
-      <p className="text-xs text-slate-600 mt-0.5">{label}</p>
+    <div className={`bg-white rounded-xl p-5 border-2 ${borderColor} hover:shadow-lg transition-all`}>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{label}</p>
+          {customContent ? (
+            customContent
+          ) : (
+            <p className="text-3xl font-bold text-slate-900 mt-2">{value}</p>
+          )}
+          {sublabel && <p className="text-xs text-slate-500 mt-1">{sublabel}</p>}
+        </div>
+        <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center text-2xl ml-3`}>
+          {icon}
+        </div>
+      </div>
     </div>
   );
 }
