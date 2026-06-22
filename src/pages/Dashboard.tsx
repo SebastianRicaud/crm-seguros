@@ -5,12 +5,16 @@ import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { formatDate, daysUntilBirthday } from '@/lib/utils';
 import { Loading } from '@/components/common/Loading';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line
+  PieChart, Pie, Cell
 } from 'recharts';
 
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
 export function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [renewals, setRenewals] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
@@ -18,8 +22,9 @@ export function Dashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [claims, setClaims] = useState<any[]>([]);
   const [policiesByCompany, setPoliciesByCompany] = useState<any[]>([]);
-  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [prospectStats, setProspectStats] = useState<any[]>([]);
   const [urgentAlerts, setUrgentAlerts] = useState<any[]>([]);
+  const [movementStats, setMovementStats] = useState({ altas: 0, bajas: 0 });
   
   // Mi Día
   const [notas, setNotas] = useState<any[]>([]);
@@ -33,8 +38,8 @@ export function Dashboard() {
   async function loadAll() {
     await Promise.all([
       loadStats(), loadRenewals(), loadBirthdays(), loadPayments(),
-      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadMonthlyData(), 
-      loadMiDia(), loadCalendarNotes()
+      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadProspectStats(), 
+      loadMovementStats(), loadMiDia(), loadCalendarNotes()
     ]);
   }
 
@@ -49,6 +54,26 @@ export function Dashboard() {
     setStats({
       clients: c.count || 0, prospects: p.count || 0, policies: pol.count || 0,
       pendingTasks: t.count || 0, activeClaims: cl.count || 0
+    });
+  }
+
+  async function loadMovementStats() {
+    // Calcular altas del mes (clientes creados este mes)
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+    const { data: newClients } = await supabase.from('clients')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', startOfMonth)
+      .eq('is_archived', false);
+    
+    // Calcular bajas del mes (clientes archivados este mes)
+    const { data: archivedClients } = await supabase.from('clients')
+      .select('id', { count: 'exact', head: true })
+      .gte('archived_at', startOfMonth)
+      .eq('is_archived', true);
+
+    setMovementStats({
+      altas: newClients?.length || 0,
+      bajas: archivedClients?.length || 0
     });
   }
 
@@ -91,21 +116,11 @@ export function Dashboard() {
     setPoliciesByCompany(Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 6));
   }
 
-  async function loadMonthlyData() {
-    const { data } = await supabase.from('clients').select('created_at').eq('is_archived', false);
-    const months: Record<string, number> = {};
-    const now = new Date();
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.toLocaleString('es', { month: 'short' });
-      months[key] = 0;
-    }
-    (data || []).forEach((c: any) => {
-      const d = new Date(c.created_at);
-      const key = d.toLocaleString('es', { month: 'short' });
-      if (months[key] !== undefined) months[key]++;
-    });
-    setMonthlyData(Object.entries(months).map(([month, clients]) => ({ month, clients })));
+  async function loadProspectStats() {
+    const { data } = await supabase.from('prospects').select('commercial_states(name)').eq('is_archived', false);
+    const counts: Record<string, number> = {};
+    (data || []).forEach((p: any) => { const n = p.commercial_states?.name || 'Sin estado'; counts[n] = (counts[n] || 0) + 1; });
+    setProspectStats(Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value));
   }
 
   async function loadMiDia() {
@@ -179,7 +194,6 @@ export function Dashboard() {
   if (!stats) return <Loading />;
 
   const pendingPayments = payments.filter(p => !p.payment_collected);
-  const conversionRate = stats && (stats.clients + stats.prospects) > 0 ? Math.round((stats.clients / (stats.clients + stats.prospects)) * 100) : 0;
 
   // Calendario
   const currentMonth = selectedDate.getMonth();
@@ -200,7 +214,7 @@ export function Dashboard() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">📊 Dashboard</h1>
+          <h1 className="text-3xl font-bold text-slate-900">🏠 Home</h1>
           <p className="text-sm text-slate-600 mt-1">
             Vista general de la cartera y gestión del período
           </p>
@@ -231,7 +245,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* KPI CARDS - Estilo Sherpa */}
+      {/* KPI CARDS - Con links */}
       <div className="grid grid-cols-4 gap-4">
         <KPICard 
           label="Pólizas en cartera" 
@@ -240,6 +254,8 @@ export function Dashboard() {
           color="bg-blue-50"
           iconColor="text-blue-600"
           borderColor="border-slate-400"
+          onClick={() => navigate('/policies')}
+          clickable
         />
         <KPICard 
           label="Clientes activos" 
@@ -249,6 +265,8 @@ export function Dashboard() {
           color="bg-emerald-50"
           iconColor="text-emerald-600"
           borderColor="border-slate-400"
+          onClick={() => navigate('/clients')}
+          clickable
         />
         <KPICard 
           label="Movimiento del período" 
@@ -257,12 +275,12 @@ export function Dashboard() {
             <div className="flex gap-4 mt-2">
               <div className="flex items-center gap-1">
                 <span className="text-emerald-600">▲</span>
-                <span className="font-bold text-emerald-700">11</span>
+                <span className="font-bold text-emerald-700">{movementStats.altas}</span>
                 <span className="text-xs text-slate-600">ALTAS</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-red-600">▼</span>
-                <span className="font-bold text-red-700">4</span>
+                <span className="font-bold text-red-700">{movementStats.bajas}</span>
                 <span className="text-xs text-slate-600">BAJAS</span>
               </div>
             </div>
@@ -271,6 +289,8 @@ export function Dashboard() {
           color="bg-purple-50"
           iconColor="text-purple-600"
           borderColor="border-slate-400"
+          onClick={() => navigate('/clients')}
+          clickable
         />
         <KPICard 
           label="Pólizas a renovar" 
@@ -280,6 +300,8 @@ export function Dashboard() {
           color="bg-cyan-50"
           iconColor="text-cyan-600"
           borderColor="border-slate-400"
+          onClick={() => navigate('/policies')}
+          clickable
         />
       </div>
 
@@ -297,12 +319,15 @@ export function Dashboard() {
               </div>
               <div className="p-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 10 }}>
+                  <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                     <XAxis type="number" stroke="#475569" fontSize={11} />
                     <YAxis type="category" dataKey="name" stroke="#475569" fontSize={11} width={100} />
-                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px' }} />
-                    <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}
+                      formatter={(value: number) => [`${value} pólizas`, 'Cantidad']}
+                    />
+                    <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#475569', fontSize: 12, fontWeight: 'bold' }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -310,18 +335,37 @@ export function Dashboard() {
 
             <Card className="border-2 border-slate-400 bg-white">
               <div className="p-4 border-b-2 border-slate-300">
-                <h3 className="font-bold text-slate-800">📈 Evolución clientes</h3>
+                <h3 className="font-bold text-slate-800">🎯 Seguimiento de prospectos</h3>
               </div>
               <div className="p-4 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                    <XAxis dataKey="month" stroke="#475569" fontSize={11} />
-                    <YAxis stroke="#475569" fontSize={11} />
-                    <Tooltip contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px' }} />
-                    <Line type="monotone" dataKey="clients" stroke="#3b82f6" strokeWidth={3} dot={{ fill: '#3b82f6', r: 5 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {prospectStats.length === 0 ? (
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-slate-500 text-sm">Sin prospectos</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={prospectStats}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {prospectStats.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}
+                        formatter={(value: number) => [`${value} prospectos`, 'Cantidad']}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </Card>
           </div>
@@ -378,7 +422,7 @@ export function Dashboard() {
         {/* COLUMNA 9-12: Calendario y Mi Día */}
         <div className="col-span-4 space-y-6">
           
-          {/* CALENDARIO - Estilo Sherpa */}
+          {/* CALENDARIO */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300">
               <h3 className="font-bold text-slate-800">📅 Eventos destacados de este mes</h3>
@@ -509,9 +553,12 @@ export function Dashboard() {
   );
 }
 
-function KPICard({ label, value, sublabel, customContent, icon, color, iconColor, borderColor }: any) {
+function KPICard({ label, value, sublabel, customContent, icon, color, iconColor, borderColor, onClick, clickable }: any) {
   return (
-    <div className={`bg-white rounded-xl p-5 border-2 ${borderColor} hover:shadow-lg transition-all`}>
+    <div 
+      onClick={clickable ? onClick : undefined}
+      className={`bg-white rounded-xl p-5 border-2 ${borderColor} ${clickable ? 'cursor-pointer hover:shadow-xl hover:border-blue-500' : ''} transition-all`}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{label}</p>
@@ -526,6 +573,11 @@ function KPICard({ label, value, sublabel, customContent, icon, color, iconColor
           {icon}
         </div>
       </div>
+      {clickable && (
+        <div className="mt-3 text-xs text-blue-600 font-semibold flex items-center gap-1">
+          Ver detalles →
+        </div>
+      )}
     </div>
   );
 }
