@@ -7,11 +7,8 @@ import { formatDate, daysUntilBirthday } from '@/lib/utils';
 import { Loading } from '@/components/common/Loading';
 import { useNavigate } from 'react-router-dom';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -22,7 +19,7 @@ export function Dashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [claims, setClaims] = useState<any[]>([]);
   const [policiesByCompany, setPoliciesByCompany] = useState<any[]>([]);
-  const [prospectStats, setProspectStats] = useState<any[]>([]);
+  const [priorityProspects, setPriorityProspects] = useState<any[]>([]);
   const [urgentAlerts, setUrgentAlerts] = useState<any[]>([]);
   const [movementStats, setMovementStats] = useState({ altas: 0, bajas: 0 });
   
@@ -38,7 +35,7 @@ export function Dashboard() {
   async function loadAll() {
     await Promise.all([
       loadStats(), loadRenewals(), loadBirthdays(), loadPayments(),
-      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadProspectStats(), 
+      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadPriorityProspects(), 
       loadMovementStats(), loadMiDia(), loadCalendarNotes()
     ]);
   }
@@ -114,11 +111,81 @@ export function Dashboard() {
     setPoliciesByCompany(Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 6));
   }
 
-  async function loadProspectStats() {
-    const { data } = await supabase.from('prospects').select('commercial_states(name)').eq('is_archived', false);
-    const counts: Record<string, number> = {};
-    (data || []).forEach((p: any) => { const n = p.commercial_states?.name || 'Sin estado'; counts[n] = (counts[n] || 0) + 1; });
-    setProspectStats(Object.entries(counts).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value));
+  async function loadPriorityProspects() {
+    // Obtener prospectos con sus estados
+    const { data } = await supabase.from('prospects')
+      .select('*, commercial_states(name, order_index, color)')
+      .eq('is_archived', false)
+      .order('updated_at', { ascending: false });
+
+    if (!data) {
+      setPriorityProspects([]);
+      return;
+    }
+
+    const now = new Date();
+    const prospectsWithPriority = data.map((p: any) => {
+      const updated = new Date(p.updated_at);
+      const daysSinceUpdate = Math.floor((now.getTime() - updated.getTime()) / 86400000);
+      const stateName = p.commercial_states?.name || 'Sin estado';
+      const stateOrder = p.commercial_states?.order_index || 0;
+      
+      // Calcular prioridad (menor número = más urgente)
+      let priority = 100;
+      let urgency = 'low';
+      let action = '';
+
+      // Prospectos cotizados hace más de 3 días sin seguimiento
+      if (stateName === 'Cotizado' && daysSinceUpdate >= 3) {
+        priority = 1;
+        urgency = 'high';
+        action = '🔴 Urgente: Cotización sin respuesta';
+      }
+      // Prospectos en seguimiento hace más de 5 días
+      else if (stateName === 'Seguimiento' && daysSinceUpdate >= 5) {
+        priority = 2;
+        urgency = 'high';
+        action = '🔴 Urgente: Sin contacto reciente';
+      }
+      // Prospectos cotizados recientes
+      else if (stateName === 'Cotizado' && daysSinceUpdate < 3) {
+        priority = 3;
+        urgency = 'medium';
+        action = '🟡 Seguimiento: Cotización reciente';
+      }
+      // Prospectos contactados
+      else if (stateName === 'Contactado' && daysSinceUpdate >= 2) {
+        priority = 4;
+        urgency = 'medium';
+        action = '🟡 Seguimiento: Contactar nuevamente';
+      }
+      // Prospectos nuevos
+      else if (stateName === 'Nuevo' && daysSinceUpdate >= 1) {
+        priority = 5;
+        urgency = 'low';
+        action = '🟢 Nuevo: Primer contacto';
+      }
+      // Otros
+      else {
+        priority = 10;
+        urgency = 'low';
+        action = '⚪ Revisar';
+      }
+
+      return {
+        ...p,
+        daysSinceUpdate,
+        stateName,
+        stateColor: p.commercial_states?.color || '#6b7280',
+        priority,
+        urgency,
+        action
+      };
+    });
+
+    // Ordenar por prioridad (más urgentes primero) y tomar los top 6
+    const sorted = prospectsWithPriority.sort((a, b) => a.priority - b.priority).slice(0, 6);
+    setPriorityProspects(sorted);
   }
 
   async function loadMiDia() {
@@ -175,7 +242,7 @@ export function Dashboard() {
   useEffect(() => {
     const alerts: any[] = [];
     payments.forEach((p) => {
-      alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 });
+      alerts.push({ type: 'payment', message: ` Cobro: ${p.clients?.first_name}`, priority: 1 });
     });
     renewals.filter(r => {
       const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000);
@@ -184,7 +251,7 @@ export function Dashboard() {
       alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 });
     });
     birthdays.filter(b => b.days <= 1).forEach(b => {
-      alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 });
+      alerts.push({ type: 'birthday', message: ` ${b.first_name}`, priority: 3 });
     });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
   }, [payments, renewals, birthdays]);
@@ -219,19 +286,6 @@ export function Dashboard() {
     return null;
   };
 
-  // Custom tooltip para PieChart
-  const CustomPieTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border-2 border-slate-400 rounded-lg shadow-lg">
-          <p className="font-bold text-slate-800 text-sm">{payload[0].payload.name}</p>
-          <p className="text-blue-600 font-bold text-lg">{payload[0].value} prospectos</p>
-        </div>
-      );
-    }
-    return null;
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       
@@ -258,7 +312,7 @@ export function Dashboard() {
           <div className="flex items-center gap-3 overflow-x-auto">
             <span className="font-bold text-sm whitespace-nowrap flex items-center gap-2">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-              🚨 ALERTAS
+               ALERTAS
             </span>
             <div className="flex gap-4">
               {urgentAlerts.slice(0, 4).map((a: any, i: number) => (
@@ -274,7 +328,7 @@ export function Dashboard() {
         <KPICard 
           label="Pólizas en cartera" 
           value={stats.policies} 
-          icon="📋"
+          icon=""
           color="bg-blue-50"
           iconColor="text-blue-600"
           borderColor="border-slate-400"
@@ -354,35 +408,75 @@ export function Dashboard() {
               </div>
             </Card>
 
+            {/* PROSPECTOS PRIORITARIOS */}
             <Card className="border-2 border-slate-400 bg-white">
-              <div className="p-4 border-b-2 border-slate-300">
-                <h3 className="font-bold text-slate-800">🎯 Seguimiento de prospectos</h3>
+              <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-orange-50 to-red-50">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800">🎯 Prospectos prioritarios</h3>
+                  <Badge color="bg-red-100 text-red-700 text-xs">
+                    {priorityProspects.filter(p => p.urgency === 'high').length} urgentes
+                  </Badge>
+                </div>
               </div>
-              <div className="p-4 h-64">
-                {prospectStats.length === 0 ? (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-slate-500 text-sm">Sin prospectos</p>
+              <div className="p-4 max-h-64 overflow-y-auto">
+                {priorityProspects.length === 0 ? (
+                  <div className="flex items-center justify-center h-48">
+                    <p className="text-slate-500 text-sm">Sin prospectos prioritarios</p>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={prospectStats}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }: any) => `${name} (${percent ? (percent * 100).toFixed(0) : 0}%)`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
+                  <div className="space-y-3">
+                    {priorityProspects.map((p: any) => (
+                      <div 
+                        key={p.id}
+                        className={`p-3 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
+                          p.urgency === 'high' 
+                            ? 'bg-red-50 border-red-300' 
+                            : p.urgency === 'medium'
+                            ? 'bg-amber-50 border-amber-300'
+                            : 'bg-slate-50 border-slate-300'
+                        }`}
+                        onClick={() => navigate('/prospects')}
                       >
-                        {prospectStats.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<CustomPieTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-800 text-sm truncate">
+                              {p.first_name} {p.last_name}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div 
+                                className="w-2 h-2 rounded-full"
+                                style={{ backgroundColor: p.stateColor }}
+                              />
+                              <span className="text-xs text-slate-600">{p.stateName}</span>
+                              <span className="text-xs text-slate-400">•</span>
+                              <span className="text-xs text-slate-500">
+                                {p.daysSinceUpdate === 0 ? 'Hoy' : `Hace ${p.daysSinceUpdate} días`}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className={`text-xs font-semibold ${
+                            p.urgency === 'high' ? 'text-red-700' : 
+                            p.urgency === 'medium' ? 'text-amber-700' : 'text-slate-600'
+                          }`}>
+                            {p.action}
+                          </p>
+                          {p.whatsapp && (
+                            <a 
+                              href={`https://wa.me/${p.whatsapp.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 font-semibold"
+                            >
+                              💬 WhatsApp
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </Card>
