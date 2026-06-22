@@ -58,14 +58,12 @@ export function Dashboard() {
   }
 
   async function loadMovementStats() {
-    // Calcular altas del mes (clientes creados este mes)
     const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
     const { data: newClients } = await supabase.from('clients')
       .select('id', { count: 'exact', head: true })
       .gte('created_at', startOfMonth)
       .eq('is_archived', false);
     
-    // Calcular bajas del mes (clientes archivados este mes)
     const { data: archivedClients } = await supabase.from('clients')
       .select('id', { count: 'exact', head: true })
       .gte('archived_at', startOfMonth)
@@ -208,6 +206,32 @@ export function Dashboard() {
     return calendarNotes.filter((n) => n.note_date === date);
   }
 
+  // Custom tooltip para BarChart
+  const CustomBarTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border-2 border-slate-400 rounded-lg shadow-lg">
+          <p className="font-bold text-slate-800 text-sm">{payload[0].payload.name}</p>
+          <p className="text-blue-600 font-bold text-lg">{payload[0].value} pólizas</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Custom tooltip para PieChart
+  const CustomPieTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-3 border-2 border-slate-400 rounded-lg shadow-lg">
+          <p className="font-bold text-slate-800 text-sm">{payload[0].payload.name}</p>
+          <p className="text-blue-600 font-bold text-lg">{payload[0].value} prospectos</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
       
@@ -323,10 +347,7 @@ export function Dashboard() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
                     <XAxis type="number" stroke="#475569" fontSize={11} />
                     <YAxis type="category" dataKey="name" stroke="#475569" fontSize={11} width={100} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}
-                      formatter={(value: number) => [`${value} pólizas`, 'Cantidad']}
-                    />
+                    <Tooltip content={<CustomBarTooltip />} />
                     <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#475569', fontSize: 12, fontWeight: 'bold' }} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -350,7 +371,7 @@ export function Dashboard() {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                        label={({ name, percent }: any) => `${name} (${percent ? (percent * 100).toFixed(0) : 0}%)`}
                         outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
@@ -359,10 +380,7 @@ export function Dashboard() {
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'white', border: '2px solid #94a3b8', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold' }}
-                        formatter={(value: number) => [`${value} prospectos`, 'Cantidad']}
-                      />
+                      <Tooltip content={<CustomPieTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
                 )}
