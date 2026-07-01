@@ -94,7 +94,7 @@ export function Clients() {
                     <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                       <WhatsAppButton phone={c.whatsapp || c.phone} size="sm" />
                       <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">✏️</button>
-                      <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">📦</button>
+                      <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600"></button>
                     </div>
                   </td>
                 </tr>
@@ -209,7 +209,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
           {/* VEHÍCULOS CON PDFs */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900">🚗 Vehículos ({vehicles.length})</h3>
+              <h3 className="font-semibold text-slate-900"> Vehículos ({vehicles.length})</h3>
               <Button size="sm" variant="outline" onClick={() => setShowVehicleForm(!showVehicleForm)}>{showVehicleForm ? 'Cancelar' : '+ Agregar'}</Button>
             </div>
             {showVehicleForm && (
@@ -251,10 +251,10 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
             )}
           </div>
 
-          {/* PÓLIZAS */}
+          {/* PÓLIZAS - AHORA CON OBSERVACIONES */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900">🛡️ Pólizas ({policies.length})</h3>
+              <h3 className="font-semibold text-slate-900">️ Pólizas ({policies.length})</h3>
               <Button size="sm" onClick={() => { setEditingPolicy(null); setShowPolicyForm(true); }}>+ Nueva póliza</Button>
             </div>
             {policies.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin pólizas</p> : (
@@ -266,12 +266,19 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                       <p className="text-xs text-slate-500">{p.companies?.name} · {p.policy_number}</p>
                       {p.vehicles && <p className="text-xs text-blue-600">🚗 {p.vehicles.brand} {p.vehicles.model} {p.vehicles.plate && `(${p.vehicles.plate})`}</p>}
                       <p className="text-xs text-slate-500 mt-1">Pago: {p.payment_method}{p.payment_day && ` - día ${p.payment_day}`}</p>
+                      {/* OBSERVACIONES DE LA PÓLIZA */}
+                      {p.notes && (
+                        <div className="mt-2 p-2 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
+                          <p className="text-xs font-semibold text-amber-800 mb-0.5">📝 Observaciones:</p>
+                          <p className="text-xs text-amber-900 whitespace-pre-wrap">{p.notes}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <Badge color="bg-amber-100 text-amber-700">Vence: {formatDate(p.expiration_date)}</Badge>
                       <div className="flex gap-1">
                         <button onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200">✏️</button>
-                        <button onClick={() => deletePolicy(p.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">🗑️</button>
+                        <button onClick={() => deletePolicy(p.id)} className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200">️</button>
                       </div>
                     </div>
                   </div>
@@ -300,7 +307,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
           {/* SINIESTROS */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900">⚠️ Siniestros ({claims.length})</h3>
+              <h3 className="font-semibold text-slate-900">️ Siniestros ({claims.length})</h3>
               <Button size="sm" variant="outline" onClick={() => setShowClaimForm(true)}>+ Nuevo siniestro</Button>
             </div>
             {claims.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin siniestros</p> : (
@@ -505,7 +512,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
         {requiresVehicle && (
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
             <label className="block text-sm font-semibold text-blue-900 mb-2">🚗 Vehículo asociado *</label>
-            {vehicles.length === 0 ? <p className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded-lg">⚠️ Primero agregá un vehículo</p> : (
+            {vehicles.length === 0 ? <p className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded-lg">️ Primero agregá un vehículo</p> : (
               <select required value={form.vehicle_id || ''} onChange={(e) => setForm({...form, vehicle_id: e.target.value})} className="w-full px-3 py-2 border border-blue-300 rounded-xl text-sm bg-white">
                 <option value="">Seleccionar...</option>
                 {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.brand} {v.model} {v.year || ''} {v.plate ? `- ${v.plate}` : ''}</option>)}
@@ -526,7 +533,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
 
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Observaciones</label>
-          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" placeholder="Ej: Cliente paga en efectivo los días 24, tiene descuento por pago puntual..." />
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
