@@ -14,17 +14,17 @@ import { CLAIM_STATUSES } from '@/lib/constants';
 
 // Mapeo de íconos por tipo de seguro
 const INSURANCE_ICONS: Record<string, { icon: string; bg: string }> = {
-  'Hogar': { icon: '', bg: 'bg-emerald-100' },
+  'Hogar': { icon: '🏡', bg: 'bg-emerald-100' },
   'Automotor': { icon: '🚗', bg: 'bg-blue-100' },
   'Automotores': { icon: '🚗', bg: 'bg-blue-100' },
-  'Motovehículo': { icon: '️', bg: 'bg-indigo-100' },
+  'Motovehículo': { icon: '️🛵', bg: 'bg-indigo-100' },
   'Comercio': { icon: '🏪', bg: 'bg-amber-100' },
   'Vida': { icon: '❤️', bg: 'bg-pink-100' },
-  'Accidentes Personales': { icon: '🩹', bg: 'bg-red-100' },
+  'Accidentes Personales': { icon: '🛡️', bg: 'bg-red-100' },
   'Salud': { icon: '⚕️', bg: 'bg-teal-100' },
   'Responsabilidad Civil': { icon: '⚖️', bg: 'bg-purple-100' },
   'Transporte': { icon: '🚚', bg: 'bg-orange-100' },
-  'Agrícola': { icon: '', bg: 'bg-lime-100' },
+  'Agrícola': { icon: '🚜', bg: 'bg-lime-100' },
   'Caución': { icon: '📋', bg: 'bg-cyan-100' },
   'Patrimonial': { icon: '', bg: 'bg-slate-100' },
 };
