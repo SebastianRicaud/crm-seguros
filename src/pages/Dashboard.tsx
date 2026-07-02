@@ -23,7 +23,6 @@ export function Dashboard() {
   const [urgentAlerts, setUrgentAlerts] = useState<any[]>([]);
   const [movementStats, setMovementStats] = useState({ altas: 0, bajas: 0 });
   
-  // Mi Día
   const [notas, setNotas] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -112,7 +111,6 @@ export function Dashboard() {
   }
 
   async function loadPriorityProspects() {
-    // Obtener prospectos con sus estados
     const { data } = await supabase.from('prospects')
       .select('*, commercial_states(name, order_index, color)')
       .eq('is_archived', false)
@@ -128,45 +126,32 @@ export function Dashboard() {
       const updated = new Date(p.updated_at);
       const daysSinceUpdate = Math.floor((now.getTime() - updated.getTime()) / 86400000);
       const stateName = p.commercial_states?.name || 'Sin estado';
-      const stateOrder = p.commercial_states?.order_index || 0;
       
-      // Calcular prioridad (menor número = más urgente)
       let priority = 100;
       let urgency = 'low';
       let action = '';
 
-      // Prospectos cotizados hace más de 3 días sin seguimiento
       if (stateName === 'Cotizado' && daysSinceUpdate >= 3) {
         priority = 1;
         urgency = 'high';
         action = '🔴 Urgente: Cotización sin respuesta';
-      }
-      // Prospectos en seguimiento hace más de 5 días
-      else if (stateName === 'Seguimiento' && daysSinceUpdate >= 5) {
+      } else if (stateName === 'Seguimiento' && daysSinceUpdate >= 5) {
         priority = 2;
         urgency = 'high';
         action = '🔴 Urgente: Sin contacto reciente';
-      }
-      // Prospectos cotizados recientes
-      else if (stateName === 'Cotizado' && daysSinceUpdate < 3) {
+      } else if (stateName === 'Cotizado' && daysSinceUpdate < 3) {
         priority = 3;
         urgency = 'medium';
         action = '🟡 Seguimiento: Cotización reciente';
-      }
-      // Prospectos contactados
-      else if (stateName === 'Contactado' && daysSinceUpdate >= 2) {
+      } else if (stateName === 'Contactado' && daysSinceUpdate >= 2) {
         priority = 4;
         urgency = 'medium';
         action = '🟡 Seguimiento: Contactar nuevamente';
-      }
-      // Prospectos nuevos
-      else if (stateName === 'Nuevo' && daysSinceUpdate >= 1) {
+      } else if (stateName === 'Nuevo' && daysSinceUpdate >= 1) {
         priority = 5;
         urgency = 'low';
         action = '🟢 Nuevo: Primer contacto';
-      }
-      // Otros
-      else {
+      } else {
         priority = 10;
         urgency = 'low';
         action = '⚪ Revisar';
@@ -183,7 +168,6 @@ export function Dashboard() {
       };
     });
 
-    // Ordenar por prioridad (más urgentes primero) y tomar los top 6
     const sorted = prospectsWithPriority.sort((a, b) => a.priority - b.priority).slice(0, 6);
     setPriorityProspects(sorted);
   }
@@ -242,7 +226,7 @@ export function Dashboard() {
   useEffect(() => {
     const alerts: any[] = [];
     payments.forEach((p) => {
-      alerts.push({ type: 'payment', message: ` Cobro: ${p.clients?.first_name}`, priority: 1 });
+      alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 });
     });
     renewals.filter(r => {
       const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000);
@@ -251,7 +235,7 @@ export function Dashboard() {
       alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 });
     });
     birthdays.filter(b => b.days <= 1).forEach(b => {
-      alerts.push({ type: 'birthday', message: ` ${b.first_name}`, priority: 3 });
+      alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 });
     });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
   }, [payments, renewals, birthdays]);
@@ -260,20 +244,10 @@ export function Dashboard() {
 
   const pendingPayments = payments.filter(p => !p.payment_collected);
 
-  // Calendario
-  const currentMonth = selectedDate.getMonth();
-  const currentYear = selectedDate.getFullYear();
-  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-  const calendarDays: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) calendarDays.push(null);
-  for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
-
   function getDayNotes(date: string) {
     return calendarNotes.filter((n) => n.note_date === date);
   }
 
-  // Custom tooltip para BarChart
   const CustomBarTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -312,7 +286,7 @@ export function Dashboard() {
           <div className="flex items-center gap-3 overflow-x-auto">
             <span className="font-bold text-sm whitespace-nowrap flex items-center gap-2">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-               ALERTAS
+              🚨 ALERTAS
             </span>
             <div className="flex gap-4">
               {urgentAlerts.slice(0, 4).map((a: any, i: number) => (
@@ -323,7 +297,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* KPI CARDS - Con links */}
+      {/* KPI CARDS */}
       <div className="grid grid-cols-4 gap-4">
         <KPICard 
           label="Pólizas en cartera" 
@@ -387,10 +361,10 @@ export function Dashboard() {
         />
       </div>
 
-      {/* CONTENIDO PRINCIPAL - Grid */}
+      {/* CONTENIDO PRINCIPAL */}
       <div className="grid grid-cols-12 gap-6">
         
-        {/* COLUMNA 1-8: Gráficos y datos */}
+        {/* COLUMNA IZQUIERDA */}
         <div className="col-span-8 space-y-6">
           
           {/* Gráficos */}
@@ -535,73 +509,82 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* COLUMNA 9-12: Calendario y Mi Día */}
+        {/* COLUMNA DERECHA */}
         <div className="col-span-4 space-y-6">
           
           {/* CALENDARIO REAL */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-slate-800">📅 Eventos destacados</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-slate-800 text-sm">📅 Eventos destacados</h3>
                 <div className="flex items-center gap-2">
                   <button 
                     onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 font-bold"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 text-sm font-bold"
                   >
-                    ←
+                    ‹
                   </button>
-                  <span className="text-sm font-bold text-slate-800 min-w-[120px] text-center capitalize">
+                  <span className="text-xs font-bold text-slate-800 min-w-[100px] text-center capitalize">
                     {selectedDate.toLocaleString('es-AR', { month: 'long', year: 'numeric' })}
                   </span>
                   <button 
                     onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 font-bold"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 text-sm font-bold"
                   >
-                    →
+                    ›
                   </button>
                 </div>
               </div>
-            </div>
-            <div className="p-4">
+              
               {/* Días de la semana */}
-              <div className="grid grid-cols-7 gap-1 mb-2">
+              <div className="grid grid-cols-7 gap-1">
                 {['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((d) => (
-                  <div key={d} className="text-center text-[10px] font-bold text-slate-600 py-2">{d}</div>
+                  <div key={d} className="text-center text-[9px] font-bold text-slate-500 py-1">{d}</div>
                 ))}
               </div>
-              
+            </div>
+            
+            <div className="p-3">
               {/* Días del mes */}
               <div className="grid grid-cols-7 gap-1">
                 {(() => {
                   const year = selectedDate.getFullYear();
                   const month = selectedDate.getMonth();
-                  const firstDay = new Date(year, month, 1).getDay();
+                  const firstDayOfMonth = new Date(year, month, 1);
                   const daysInMonth = new Date(year, month + 1, 0).getDate();
                   const today = new Date();
-                  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+                  
+                  let startingDay = firstDayOfMonth.getDay();
+                  startingDay = startingDay === 0 ? 6 : startingDay - 1;
                   
                   const days: JSX.Element[] = [];
                   
-                  for (let i = 0; i < startOffset; i++) {
-                    days.push(<div key={`empty-${i}`} />);
+                  for (let i = 0; i < startingDay; i++) {
+                    days.push(<div key={`empty-${i}`} className="aspect-square" />);
                   }
                   
                   for (let day = 1; day <= daysInMonth; day++) {
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                     const dayNotes = getDayNotes(dateStr);
-                    const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+                    const isToday = day === today.getDate() && 
+                                   month === today.getMonth() && 
+                                   year === today.getFullYear();
                     
                     days.push(
                       <button
                         key={day}
                         onClick={() => setSelectedDate(new Date(year, month, day))}
-                        className={`aspect-square rounded-lg text-xs font-semibold transition-all relative border-2 ${isToday ? 'bg-blue-600 text-white border-blue-700' : 'hover:bg-slate-100 text-slate-700 border-slate-300'}`}
+                        className={`aspect-square rounded-lg text-xs font-semibold transition-all relative border ${
+                          isToday 
+                            ? 'bg-blue-600 text-white border-blue-700' 
+                            : 'hover:bg-slate-50 text-slate-700 border-slate-200'
+                        }`}
                       >
                         {day}
                         {dayNotes.length > 0 && !isToday && (
-                          <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-px">
+                          <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
                             {dayNotes.slice(0, 2).map((n: any, idx: number) => (
-                              <div key={idx} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: n.color }} />
+                              <div key={idx} className="w-1 h-1 rounded-full" style={{ backgroundColor: n.color }} />
                             ))}
                           </div>
                         )}
@@ -614,47 +597,23 @@ export function Dashboard() {
               </div>
               
               {/* Notas del día seleccionado */}
-              <div className="mt-4 space-y-2">
+              <div className="mt-3 space-y-2">
                 <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Evento..."
                     value={newCalendarNote.title}
                     onChange={(e) => setNewCalendarNote({...newCalendarNote, title: e.target.value})}
-                    className="flex-1 px-3 py-2 border-2 border-slate-400 rounded-lg text-xs font-medium"
+                    className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-xs"
                   />
-                  <Button size="sm" onClick={addCalendarNote} className="text-xs px-3 py-2 border-2 border-slate-400 bg-slate-800 text-white hover:bg-slate-900">
+                  <Button size="sm" onClick={addCalendarNote} className="text-xs px-2 py-1.5 bg-blue-600 text-white hover:bg-blue-700">
                     +
                   </Button>
                 </div>
                 {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
-                  <div key={n.id} className="p-2.5 rounded-lg border-2 border-slate-300 bg-slate-50 text-xs relative">
-                    <p className="font-semibold text-slate-800">{n.title}</p>
-                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-1 right-1 text-red-600 text-xs font-bold">×</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-
-              {/* Notas del día */}
-              <div className="mt-4 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Evento..."
-                    value={newCalendarNote.title}
-                    onChange={(e) => setNewCalendarNote({...newCalendarNote, title: e.target.value})}
-                    className="flex-1 px-3 py-2 border-2 border-slate-400 rounded-lg text-xs font-medium"
-                  />
-                  <Button size="sm" onClick={addCalendarNote} className="text-xs px-3 py-2 border-2 border-slate-400 bg-slate-800 text-white hover:bg-slate-900">
-                    +
-                  </Button>
-                </div>
-                {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
-                  <div key={n.id} className="p-2.5 rounded-lg border-2 border-slate-300 bg-slate-50 text-xs relative">
-                    <p className="font-semibold text-slate-800">{n.title}</p>
-                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-1 right-1 text-red-600 text-xs font-bold">×</button>
+                  <div key={n.id} className="p-2 rounded border border-slate-200 bg-slate-50 text-xs relative">
+                    <p className="font-medium text-slate-800">{n.title}</p>
+                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-0.5 right-1 text-red-500 text-xs">×</button>
                   </div>
                 ))}
               </div>
