@@ -538,46 +538,105 @@ export function Dashboard() {
         {/* COLUMNA 9-12: Calendario y Mi Día */}
         <div className="col-span-4 space-y-6">
           
-          {/* CALENDARIO */}
+          {/* CALENDARIO REAL */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300">
-              <h3 className="font-bold text-slate-800">📅 Eventos destacados de este mes</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-slate-800">📅 Eventos destacados</h3>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 font-bold"
+                  >
+                    ←
+                  </button>
+                  <span className="text-sm font-bold text-slate-800 min-w-[120px] text-center capitalize">
+                    {selectedDate.toLocaleString('es-AR', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button 
+                    onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600 font-bold"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="p-4">
-              <div className="grid grid-cols-7 gap-1 mb-3">
+              {/* Días de la semana */}
+              <div className="grid grid-cols-7 gap-1 mb-2">
                 {['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((d) => (
                   <div key={d} className="text-center text-[10px] font-bold text-slate-600 py-2">{d}</div>
                 ))}
               </div>
+              
+              {/* Días del mes */}
               <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day, i) => {
-                  if (!day) return <div key={i} />;
-                  const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                  const dayNotes = getDayNotes(dateStr);
-                  const isToday = day === new Date().getDate();
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => setSelectedDate(new Date(currentYear, currentMonth, day))}
-                      className={`aspect-square rounded-lg text-xs font-semibold transition-all relative border-2 ${
-                        isToday 
-                          ? 'bg-blue-600 text-white border-blue-700' 
-                          : 'hover:bg-slate-100 text-slate-700 border-slate-300'
-                      }`}
-                    >
-                      {day}
-                      {dayNotes.length > 0 && !isToday && (
-                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-px">
-                          {dayNotes.slice(0, 2).map((n: any, idx: number) => (
-                            <div key={idx} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: n.color }} />
-                          ))}
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+                {(() => {
+                  const year = selectedDate.getFullYear();
+                  const month = selectedDate.getMonth();
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+                  const today = new Date();
+                  const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+                  
+                  const days: JSX.Element[] = [];
+                  
+                  for (let i = 0; i < startOffset; i++) {
+                    days.push(<div key={`empty-${i}`} />);
+                  }
+                  
+                  for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayNotes = getDayNotes(dateStr);
+                    const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+                    
+                    days.push(
+                      <button
+                        key={day}
+                        onClick={() => setSelectedDate(new Date(year, month, day))}
+                        className={`aspect-square rounded-lg text-xs font-semibold transition-all relative border-2 ${isToday ? 'bg-blue-600 text-white border-blue-700' : 'hover:bg-slate-100 text-slate-700 border-slate-300'}`}
+                      >
+                        {day}
+                        {dayNotes.length > 0 && !isToday && (
+                          <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-px">
+                            {dayNotes.slice(0, 2).map((n: any, idx: number) => (
+                              <div key={idx} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: n.color }} />
+                            ))}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  }
+                  
+                  return days;
+                })()}
               </div>
               
+              {/* Notas del día seleccionado */}
+              <div className="mt-4 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Evento..."
+                    value={newCalendarNote.title}
+                    onChange={(e) => setNewCalendarNote({...newCalendarNote, title: e.target.value})}
+                    className="flex-1 px-3 py-2 border-2 border-slate-400 rounded-lg text-xs font-medium"
+                  />
+                  <Button size="sm" onClick={addCalendarNote} className="text-xs px-3 py-2 border-2 border-slate-400 bg-slate-800 text-white hover:bg-slate-900">
+                    +
+                  </Button>
+                </div>
+                {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
+                  <div key={n.id} className="p-2.5 rounded-lg border-2 border-slate-300 bg-slate-50 text-xs relative">
+                    <p className="font-semibold text-slate-800">{n.title}</p>
+                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-1 right-1 text-red-600 text-xs font-bold">×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
               {/* Notas del día */}
               <div className="mt-4 space-y-2">
                 <div className="flex gap-2">
