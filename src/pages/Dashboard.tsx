@@ -466,7 +466,7 @@ export function Dashboard() {
               <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
                 <h3 className="font-bold text-slate-800">💰 Cobros próximos (2 días)</h3>
               </div>
-              <div className="p-4 max-h-64 overflow-y-auto">
+              <div className="p-4 max-h-80 overflow-y-auto">
                 {pendingPayments.length === 0 ? (
                   <p className="text-sm text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
                 ) : (
@@ -491,7 +491,7 @@ export function Dashboard() {
               <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-blue-50 to-cyan-50">
                 <h3 className="font-bold text-slate-800">✅ Gestiones pendientes</h3>
               </div>
-              <div className="p-4 max-h-64 overflow-y-auto">
+              <div className="p-4 max-h-80 overflow-y-auto">
                 {tasks.length === 0 ? (
                   <p className="text-sm text-slate-500 text-center py-6">Sin gestiones</p>
                 ) : (
