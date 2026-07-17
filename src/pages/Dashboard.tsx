@@ -86,10 +86,37 @@ export function Dashboard() {
   }
 
   async function loadPayments() {
-    const currentDay = new Date().getDate();
+    const today = new Date();
+    const currentDay = today.getDate();
+    const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const daysAhead = 5; // Mostrar 5 días hacia adelante
+    
     const { data } = await supabase.from('policies').select('*, clients(first_name, last_name)')
-      .in('payment_method', ['Efectivo', 'Cheques']).eq('is_archived', false).not('payment_day', 'is', null).order('payment_day');
-    const filtered = (data || []).filter((p: any) => { const diff = p.payment_day - currentDay; return diff >= 0 && diff <= 6; });
+      .in('payment_method', ['Efectivo', 'Cheques'])
+      .eq('is_archived', false)
+      .not('payment_day', 'is', null)
+      .eq('payment_collected', false)
+      .order('payment_day');
+
+    const filtered = (data || []).filter((p: any) => {
+      const paymentDay = p.payment_day;
+      
+      // Caso 1: Cobro dentro del mes actual (hoy hasta fin de mes)
+      if (paymentDay >= currentDay) {
+        const daysUntil = paymentDay - currentDay;
+        return daysUntil <= daysAhead;
+      }
+      
+      // Caso 2: Cobro en el próximo mes (cruce de mes)
+      const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
+      if (daysUntilEndOfMonth < daysAhead) {
+        const remainingDays = daysAhead - daysUntilEndOfMonth;
+        return paymentDay <= remainingDays;
+      }
+      
+      return false;
+    });
+    
     setPayments(filtered);
   }
 
@@ -460,38 +487,39 @@ export function Dashboard() {
             </Card>
           </div>
 
-          {/* Cobros y Tareas */}
-          <div className="grid grid-cols-2 gap-6">
-            <Card className="border-2 border-slate-400 bg-white">
-              <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
-                <h3 className="font-bold text-slate-800">💰 Cobros próximos (6 días)</h3>
-              </div>
-              <div className="p-4 max-h-160 overflow-y-auto">
-                {pendingPayments.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
-                ) : (
-                  <div className="space-y-2">
-                    {pendingPayments.map((p: any) => (
-                      <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-2 border-slate-300">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                          <p className="text-xs text-slate-600 truncate">Día {p.payment_day}</p>
-                        </div>
-                        <Button size="sm" onClick={() => markCobroDone(p.id)} className="bg-emerald-600 hover:bg-emerald-700 text-xs px-3 py-1.5 border-2 border-emerald-700">
-                          ✓ Cobrado
-                        </Button>
+          {/* Cobros próximos - Tarjeta grande */}
+          <Card className="border-2 border-slate-400 bg-white">
+            <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
+              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (5 días)</h3>
+            </div>
+            <div className="p-5 max-h-[500px] overflow-y-auto">
+              {pendingPayments.length === 0 ? (
+                <p className="text-sm text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
+              ) : (
+                <div className="space-y-2">
+                  {pendingPayments.map((p: any) => (
+                    <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-2 border-slate-300">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
+                        <p className="text-xs text-slate-600 truncate">Día {p.payment_day}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+                      <Button size="sm" onClick={() => markCobroDone(p.id)} className="bg-emerald-600 hover:bg-emerald-700 text-xs px-3 py-1.5 border-2 border-emerald-700">
+                        ✓ Cobrado
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
 
+          {/* Gestiones pendientes */}
+          <div className="grid grid-cols-2 gap-6">
             <Card className="border-2 border-slate-400 bg-white">
               <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-blue-50 to-cyan-50">
                 <h3 className="font-bold text-slate-800">✅ Gestiones pendientes</h3>
               </div>
-              <div className="p-4 max-h-160 overflow-y-auto">
+              <div className="p-5 max-h-[500px] overflow-y-auto">
                 {tasks.length === 0 ? (
                   <p className="text-sm text-slate-500 text-center py-6">Sin gestiones</p>
                 ) : (
