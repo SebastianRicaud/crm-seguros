@@ -89,7 +89,7 @@ export function Dashboard() {
     const currentDay = new Date().getDate();
     const { data } = await supabase.from('policies').select('*, clients(first_name, last_name)')
       .in('payment_method', ['Efectivo', 'Cheques']).eq('is_archived', false).not('payment_day', 'is', null).order('payment_day');
-    const filtered = (data || []).filter((p: any) => { const diff = p.payment_day - currentDay; return diff >= 0 && diff <= 2; });
+    const filtered = (data || []).filter((p: any) => { const diff = p.payment_day - currentDay; return diff >= 0 && diff <= 6; });
     setPayments(filtered);
   }
 
@@ -464,7 +464,7 @@ export function Dashboard() {
           <div className="grid grid-cols-2 gap-6">
             <Card className="border-2 border-slate-400 bg-white">
               <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
-                <h3 className="font-bold text-slate-800">💰 Cobros próximos (2 días)</h3>
+                <h3 className="font-bold text-slate-800">💰 Cobros próximos (6 días)</h3>
               </div>
               <div className="p-4 max-h-160 overflow-y-auto">
                 {pendingPayments.length === 0 ? (
