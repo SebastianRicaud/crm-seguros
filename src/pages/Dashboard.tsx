@@ -85,23 +85,34 @@ export function Dashboard() {
     setBirthdays(upcoming);
   }
 
+  // ✅ FUNCIÓN DE COBROS A PRUEBA DE BALAS
   async function loadPayments() {
     const today = new Date();
     const currentDay = today.getDate();
     const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysAhead = 5; // Mostrar 5 días hacia adelante
+    const daysAhead = 5; 
     
-    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name)')
-      .in('payment_method', ['Efectivo', 'Cheques'])
+    // Quitamos el filtro estricto de payment_collected de la consulta para evitar que falle si es null
+    const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name)')
+      // Agregamos variantes en minúsculas por si acaso
+      .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
       .not('payment_day', 'is', null)
-      .eq('payment_collected', false)
       .order('payment_day');
 
+    if (error) {
+      console.error("Error cargando cobros:", error);
+    }
+
     const filtered = (data || []).filter((p: any) => {
-      const paymentDay = p.payment_day;
+      // Forzamos que sea un número para evitar errores de comparación de texto
+      const paymentDay = parseInt(p.payment_day, 10);
+      if (isNaN(paymentDay)) return false;
+
+      // Si ya está marcado como cobrado, lo ocultamos
+      if (p.payment_collected === true) return false;
       
-      // Caso 1: Cobro dentro del mes actual (hoy hasta fin de mes)
+      // Caso 1: Cobro dentro del mes actual
       if (paymentDay >= currentDay) {
         const daysUntil = paymentDay - currentDay;
         return daysUntil <= daysAhead;
