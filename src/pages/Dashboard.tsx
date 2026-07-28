@@ -90,7 +90,7 @@ export function Dashboard() {
     const today = new Date();
     const currentDay = today.getDate();
     const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const daysAhead = 5; 
+    const daysAhead = 15; 
     
     // Quitamos el filtro estricto de payment_collected de la consulta para evitar que falle si es null
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name)')
@@ -501,7 +501,7 @@ export function Dashboard() {
           {/* Cobros próximos - Tarjeta grande */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
-              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (5 días)</h3>
+              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (15 días)</h3>
             </div>
             <div className="p-5 max-h-[500px] overflow-y-auto">
               {pendingPayments.length === 0 ? (
