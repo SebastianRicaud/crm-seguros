@@ -7,31 +7,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { WhatsAppButton } from '@/components/common/WhatsAppButton';
 import { Loading } from '@/components/common/Loading';
-import { PDFUploader } from '@/components/common/PDFUploader';
-import { PDFViewer } from '@/components/common/PDFViewer';
 import { getInitials, formatDate } from '@/lib/utils';
 import { CLAIM_STATUSES } from '@/lib/constants';
-
-// Mapeo de íconos por tipo de seguro
-const INSURANCE_ICONS: Record<string, { icon: string; bg: string }> = {
-  'Hogar': { icon: '🏡', bg: 'bg-emerald-100' },
-  'Automotor': { icon: '🚗', bg: 'bg-blue-100' },
-  'Automotores': { icon: '🚗', bg: 'bg-blue-100' },
-  'Motovehículo': { icon: '️🛵', bg: 'bg-indigo-100' },
-  'Comercio': { icon: '🏪', bg: 'bg-amber-100' },
-  'Vida': { icon: '❤️', bg: 'bg-pink-100' },
-  'Accidentes Personales': { icon: '🛡️', bg: 'bg-red-100' },
-  'Salud': { icon: '⚕️', bg: 'bg-teal-100' },
-  'Responsabilidad Civil': { icon: '⚖️', bg: 'bg-purple-100' },
-  'Transporte': { icon: '🚚', bg: 'bg-orange-100' },
-  'Agrícola': { icon: '🚜', bg: 'bg-lime-100' },
-  'Caución': { icon: '📋', bg: 'bg-cyan-100' },
-  'Patrimonial': { icon: '', bg: 'bg-slate-100' },
-};
-
-function getInsuranceIcon(typeName: string) {
-  return INSURANCE_ICONS[typeName] || { icon: '', bg: 'bg-gray-100' };
-}
 
 export function Clients() {
   const [clients, setClients] = useState<any[]>([]);
@@ -40,12 +17,30 @@ export function Clients() {
   const [editing, setEditing] = useState<any>(null);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [showClientForm, setShowClientForm] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [clientPolicyCounts, setClientPolicyCounts] = useState<Record<string, number>>({});
 
   useEffect(() => { load(); }, []);
 
   async function load() {
     const { data } = await supabase.from('clients').select('*').eq('is_archived', false).order('last_name', { ascending: true });
-    setClients(data || []); setLoading(false);
+    setClients(data || []);
+    await loadPolicyCounts();
+    setLoading(false);
+  }
+
+  async function loadPolicyCounts() {
+    const today = new Date().toISOString().split('T')[0];
+    const { data } = await supabase.from('policies')
+      .select('client_id')
+      .eq('is_archived', false)
+      .gte('expiration_date', today);
+    
+    const counts: Record<string, number> = {};
+    (data || []).forEach((p: any) => {
+      counts[p.client_id] = (counts[p.client_id] || 0) + 1;
+    });
+    setClientPolicyCounts(counts);
   }
 
   async function archive(id: string) {
@@ -57,9 +52,23 @@ export function Clients() {
   const filtered = clients
     .filter((c) => {
       const q = search.toLowerCase();
-      return (c.first_name + ' ' + c.last_name).toLowerCase().includes(q) || (c.dni||'').includes(q) || (c.email||'').toLowerCase().includes(q);
+      const matchesSearch = (c.first_name + ' ' + c.last_name).toLowerCase().includes(q) || 
+                           (c.dni||'').includes(q) || 
+                           (c.email||'').toLowerCase().includes(q);
+      
+      if (!matchesSearch) return false;
+      
+      const policyCount = clientPolicyCounts[c.id] || 0;
+      
+      if (activeFilter === 'active') return policyCount > 0;
+      if (activeFilter === 'inactive') return policyCount === 0;
+      
+      return true;
     })
     .sort((a, b) => (a.last_name + a.first_name).localeCompare(b.last_name + b.first_name, 'es'));
+
+  const activeCount = clients.filter(c => (clientPolicyCounts[c.id] || 0) > 0).length;
+  const inactiveCount = clients.filter(c => (clientPolicyCounts[c.id] || 0) === 0).length;
 
   if (loading) return <Loading />;
 
@@ -73,6 +82,66 @@ export function Clients() {
         <Button onClick={() => { setEditing(null); setShowClientForm(true); }}>+ Nuevo cliente</Button>
       </div>
 
+      {/* BOTONES DE FILTRO */}
+      <div className="grid grid-cols-2 gap-4">
+        <button
+          onClick={() => setActiveFilter(activeFilter === 'active' ? 'all' : 'active')}
+          className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+            activeFilter === 'active'
+              ? 'bg-emerald-50 border-emerald-400 shadow-md'
+              : 'bg-white border-slate-200 hover:border-emerald-300'
+          }`}
+        >
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+            activeFilter === 'active' ? 'bg-emerald-200' : 'bg-emerald-100'
+          }`}>
+            
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-semibold text-slate-600 uppercase">Clientes Activos</p>
+            <p className="text-2xl font-bold text-slate-900">{activeCount}</p>
+            <p className="text-xs text-slate-500">con pólizas vigentes</p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setActiveFilter(activeFilter === 'inactive' ? 'all' : 'inactive')}
+          className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+            activeFilter === 'inactive'
+              ? 'bg-slate-100 border-slate-400 shadow-md'
+              : 'bg-white border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+            activeFilter === 'inactive' ? 'bg-slate-300' : 'bg-slate-200'
+          }`}>
+            🚫
+          </div>
+          <div className="text-left">
+            <p className="text-xs font-semibold text-slate-600 uppercase">Clientes Inactivos</p>
+            <p className="text-2xl font-bold text-slate-900">{inactiveCount}</p>
+            <p className="text-xs text-slate-500">sin pólizas vigentes</p>
+          </div>
+        </button>
+      </div>
+
+      {activeFilter !== 'all' && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-slate-600">Filtrando por:</span>
+          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            activeFilter === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
+          }`}>
+            {activeFilter === 'active' ? 'Con pólizas vigentes' : 'Sin pólizas vigentes'}
+          </span>
+          <button 
+            onClick={() => setActiveFilter('all')}
+            className="text-blue-600 hover:text-blue-700 text-xs font-semibold ml-2"
+          >
+            ✕ Quitar filtro
+          </button>
+        </div>
+      )}
+
       <input type="text" placeholder="🔍 Buscar por nombre, DNI, email..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full max-w-md px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm" />
 
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
@@ -83,43 +152,48 @@ export function Clients() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Cliente</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">DNI</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Contacto</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Ubicación</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Pólizas Vigentes</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map((c) => (
-                <tr key={c.id} onClick={() => setSelectedClient(c)} className="hover:bg-slate-50 cursor-pointer transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-full flex items-center justify-center font-semibold text-sm shadow-sm">{getInitials(c.first_name, c.last_name)}</div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{c.last_name}, {c.first_name}</p>
-                        <p className="text-xs text-slate-500">{c.email || '—'}</p>
+              {filtered.map((c) => {
+                const policyCount = clientPolicyCounts[c.id] || 0;
+                return (
+                  <tr key={c.id} onClick={() => setSelectedClient(c)} className="hover:bg-slate-50 cursor-pointer transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 text-white rounded-full flex items-center justify-center font-semibold text-sm shadow-sm">{getInitials(c.first_name, c.last_name)}</div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{c.last_name}, {c.first_name}</p>
+                          <p className="text-xs text-slate-500">{c.email || '—'}</p>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="text-sm text-slate-700 font-mono">{c.dni || '—'}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                      {c.phone && <p className="text-xs text-slate-600">📞 {c.phone}</p>}
-                      {c.whatsapp && <p className="text-xs text-slate-600">💬 {c.whatsapp}</p>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="text-sm text-slate-700">{c.city || '—'}{c.province && `, ${c.province}`}</p>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      <WhatsAppButton phone={c.whatsapp || c.phone} size="sm" />
-                      <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">✏️</button>
-                      <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">📦</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-slate-700 font-mono">{c.dni || '—'}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        {c.phone && <p className="text-xs text-slate-600">📞 {c.phone}</p>}
+                        {c.whatsapp && <p className="text-xs text-slate-600">💬 {c.whatsapp}</p>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge color={policyCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}>
+                        {policyCount} {policyCount === 1 ? 'póliza' : 'pólizas'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        <WhatsAppButton phone={c.whatsapp || c.phone} size="sm" />
+                        <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">✏️</button>
+                        <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">📦</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">No se encontraron clientes</td></tr>
               )}
@@ -189,7 +263,6 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
     await supabase.from('tasks').update({ status }).eq('id', id); loadAll();
   }
 
-  // Calcular si una póliza está vigente
   function isPolicyVigente(policy: any) {
     if (!policy.expiration_date) return false;
     const exp = new Date(policy.expiration_date);
@@ -200,7 +273,6 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
     <>
       <Modal open onClose={onClose} title={`${client.first_name} ${client.last_name}`} size="2xl">
         <div className="space-y-5">
-          {/* HEADER DEL CLIENTE */}
           <div className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-5">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-4">
@@ -228,7 +300,6 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
             {client.notes && <div className="mt-3 p-3 bg-white rounded-xl"><p className="text-xs text-slate-500 mb-1">Observaciones</p><p className="text-sm text-slate-700">{client.notes}</p></div>}
           </div>
 
-          {/* KPI CARDS */}
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 text-center border border-blue-200/50"><p className="text-2xl font-bold text-blue-700">{vehicles.length}</p><p className="text-xs text-blue-600 font-medium">Vehículos</p></div>
             <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-3 text-center border border-emerald-200/50"><p className="text-2xl font-bold text-emerald-700">{policies.length}</p><p className="text-xs text-emerald-600 font-medium">Pólizas</p></div>
@@ -236,7 +307,6 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
             <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl p-3 text-center border border-red-200/50"><p className="text-2xl font-bold text-red-700">{claims.filter((c: any) => c.status !== 'Cerrado').length}</p><p className="text-xs text-red-600 font-medium">Siniestros</p></div>
           </div>
 
-          {/* VEHÍCULOS */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-900">🚗 Vehículos ({vehicles.length})</h3>
@@ -268,18 +338,15 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => setSelectedVehicle(v)}>📄 Documentos</Button>
-                        <button onClick={() => deleteVehicle(v.id)} className="text-red-400 text-xs px-2 py-1 bg-red-50 rounded-lg hover:bg-red-100">️</button>
+                        <button onClick={() => deleteVehicle(v.id)} className="text-red-400 text-xs px-2 py-1 bg-red-50 rounded-lg hover:bg-red-100">🗑️</button>
                       </div>
                     </div>
-                    <PDFUploader vehicleId={v.id} onUploaded={() => {}} />
-                    <PDFViewer vehicleId={v.id} />
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* PÓLIZAS - NUEVO DISEÑO TIPO TARJETA */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-900">📋 Pólizas vigentes ({policies.length})</h3>
@@ -289,46 +356,19 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
               <div className="space-y-3">
                 {policies.map((p: any) => {
                   const vigente = isPolicyVigente(p);
-                  const insuranceInfo = getInsuranceIcon(p.insurance_types?.name || '');
-                  const vehicleInfo = p.vehicles ? `${p.vehicles.brand} ${p.vehicles.model} ${p.vehicles.year || ''} ${p.vehicles.plate ? `(${p.vehicles.plate})` : ''}` : null;
-                  const riskAddress = client.address ? `${client.address}, ${client.city || ''} ${client.province ? `(${client.province})` : ''}`.replace(/,\s*,/g, ',').replace(/,\s*$/, '') : null;
-
                   return (
                     <div key={p.id} className="bg-white rounded-xl border-2 border-slate-200 hover:border-blue-300 transition-all p-4">
-                      {/* Fila superior: Icono + Título + Badge */}
                       <div className="flex items-start gap-4">
-                        {/* Icono */}
-                        <div className={`w-12 h-12 ${insuranceInfo.bg} rounded-xl flex items-center justify-center text-2xl flex-shrink-0`}>
-                          {insuranceInfo.icon}
-                        </div>
-
-                        {/* Contenido principal */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <h4 className="font-bold text-slate-900 text-base">{p.insurance_types?.name || 'Seguro'}</h4>
                             <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                              vigente 
-                                ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                                : 'bg-red-100 text-red-700 border border-red-200'
+                              vigente ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'
                             }`}>
                               <span className={`w-1.5 h-1.5 rounded-full ${vigente ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                               {vigente ? 'Vigente' : 'Vencida'}
                             </span>
                           </div>
-
-                          {/* Dirección del riesgo o vehículo */}
-                          {vehicleInfo && (
-                            <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">
-                              {vehicleInfo}
-                            </p>
-                          )}
-                          {riskAddress && !vehicleInfo && (
-                            <p className="text-xs text-slate-500 mb-2 uppercase tracking-wide font-medium">
-                              {riskAddress}
-                            </p>
-                          )}
-
-                          {/* Fila inferior: Compañía, Póliza, Fechas */}
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-600">
                             <span className="flex items-center gap-1">
                               <span className="text-slate-400">🏢</span>
@@ -340,11 +380,9 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                             </span>
                             <span className="flex items-center gap-1">
                               <span className="text-slate-400">📅</span>
-                              <span>{formatDate(p.start_date || p.created_at)} — {formatDate(p.expiration_date)}</span>
+                              <span>{formatDate(p.expiration_date)}</span>
                             </span>
                           </div>
-
-                          {/* Observaciones */}
                           {p.notes && (
                             <div className="mt-3 p-2.5 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
                               <p className="text-xs font-semibold text-amber-800 mb-0.5">📝 Observaciones:</p>
@@ -352,72 +390,11 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                             </div>
                           )}
                         </div>
-
-                        {/* Botones de acción */}
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button 
-                            onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} 
-                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm"
-                            title="Editar"
-                          >
-                            ✏️
-                          </button>
-                          <button 
-                            onClick={() => deletePolicy(p.id)} 
-                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-sm"
-                            title="Eliminar"
-                          >
-                            🗑️
-                          </button>
+                          <button onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm">✏️</button>
+                          <button onClick={() => deletePolicy(p.id)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-sm">️</button>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* GESTIONES */}
-          <div>
-            <h3 className="font-semibold text-slate-900 mb-3">✅ Gestiones ({tasks.length})</h3>
-            {tasks.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin gestiones</p> : (
-              <div className="space-y-2">
-                {tasks.map((t: any) => (
-                  <div key={t.id} className="bg-slate-50 rounded-xl p-3 flex justify-between items-start">
-                    <div className="flex-1"><p className="font-medium text-sm">{t.title}</p><p className="text-xs text-slate-500 mt-1">📅 {formatDate(t.due_date)} · {t.priority}</p></div>
-                    <select value={t.status} onChange={(e) => updateTaskStatus(t.id, e.target.value)} className="text-xs px-2 py-1 border border-slate-200 rounded-lg bg-white">
-                      <option value="Pendiente">Pendiente</option><option value="En Proceso">En Proceso</option><option value="Finalizada">Finalizada</option>
-                    </select>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* SINIESTROS */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900">⚠️ Siniestros ({claims.length})</h3>
-              <Button size="sm" variant="outline" onClick={() => setShowClaimForm(true)}>+ Nuevo siniestro</Button>
-            </div>
-            {claims.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">Sin siniestros</p> : (
-              <div className="space-y-2">
-                {claims.map((c: any) => {
-                  const statusInfo = CLAIM_STATUSES.find((s) => s.value === c.status);
-                  return (
-                    <div key={c.id} className="bg-slate-50 rounded-xl p-3 cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => setSelectedClaim(c)}>
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-xs text-slate-500">{formatDate(c.claim_date)}</p>
-                            {c.policies && <p className="text-xs text-blue-600">· Póliza {c.policies.policy_number}</p>}
-                          </div>
-                          {c.description && <p className="text-sm text-slate-700 line-clamp-2">{c.description}</p>}
-                        </div>
-                        <Badge color={`${statusInfo?.color} text-white`}>{c.status}</Badge>
-                      </div>
-                      <p className="text-xs text-blue-600 mt-2 font-medium">Ver seguimiento →</p>
                     </div>
                   );
                 })}
@@ -432,7 +409,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
         </div>
       </Modal>
 
-      {showPolicyForm && <PolicyForm policy={editingPolicy} client={client} vehicles={vehicles} companies={companies} types={types} onClose={() => setShowPolicyForm(false)} onSaved={() => { setShowPolicyForm(false); loadAll(); onRefresh?.(); }} />}
+      {showPolicyForm && <PolicyForm policy={editingPolicy} client={client} companies={companies} types={types} onClose={() => setShowPolicyForm(false)} onSaved={() => { setShowPolicyForm(false); loadAll(); onRefresh?.(); }} />}
       {showClaimForm && <ClaimForm client={client} policies={policies} onClose={() => setShowClaimForm(false)} onSaved={() => { setShowClaimForm(false); loadAll(); }} />}
       {selectedClaim && <ClaimDetailView claim={selectedClaim} policies={policies} onClose={() => setSelectedClaim(null)} onUpdate={() => { setSelectedClaim(null); loadAll(); }} />}
     </>
@@ -467,10 +444,6 @@ function ClaimForm({ client, policies, onClose, onSaved }: any) {
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Descripción *</label>
           <textarea required value={form.description||''} onChange={(e) => setForm({...form, description: e.target.value})} rows={3} placeholder="Describí el siniestro..." className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">Documentación</label>
-          <textarea value={form.documentation||''} onChange={(e) => setForm({...form, documentation: e.target.value})} rows={2} placeholder="Links o referencias a documentación..." className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
@@ -524,7 +497,6 @@ function ClaimDetailView({ claim, policies, onClose, onUpdate }: any) {
             </select>
           </div>
           {claim.description && <p className="text-sm text-slate-700">{claim.description}</p>}
-          {claim.documentation && <div className="mt-2 p-2 bg-white rounded-lg"><p className="text-xs text-slate-500 mb-1">Documentación:</p><p className="text-xs text-slate-700">{claim.documentation}</p></div>}
         </div>
 
         <div>
@@ -551,30 +523,19 @@ function ClaimDetailView({ claim, policies, onClose, onUpdate }: any) {
   );
 }
 
-function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSaved }: any) {
+function PolicyForm({ policy, client, companies, types, onClose, onSaved }: any) {
   const [form, setForm] = useState<any>(policy ? {
     client_id: client.id, company_id: policy.company_id, policy_number: policy.policy_number,
     insurance_type_id: policy.insurance_type_id, expiration_date: policy.expiration_date?.split('T')[0],
     payment_method: policy.payment_method, payment_day: policy.payment_day || '',
-    vehicle_id: policy.vehicle_id || '', notes: policy.notes || '',
+    notes: policy.notes || '',
   } : { client_id: client.id, payment_method: 'CBU' });
-  const [selectedTypeName, setSelectedTypeName] = useState<string>('');
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (form.insurance_type_id) {
-      const t = types.find((x: any) => x.id === form.insurance_type_id);
-      setSelectedTypeName(t?.name || '');
-    }
-  }, [form.insurance_type_id, types]);
-
-  const requiresVehicle = ['Automotor', 'Motovehículo'].includes(selectedTypeName);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (requiresVehicle && !form.vehicle_id) { alert('️ Debés seleccionar un vehículo'); return; }
     setLoading(true);
-    const payload = { ...form, payment_day: form.payment_day ? parseInt(form.payment_day) : null, vehicle_id: requiresVehicle ? form.vehicle_id : null };
+    const payload = { ...form, payment_day: form.payment_day ? parseInt(form.payment_day) : null };
     if (policy) await supabase.from('policies').update(payload).eq('id', policy.id);
     else await supabase.from('policies').insert(payload);
     setLoading(false); onSaved();
@@ -600,31 +561,9 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
           )}
         </div>
 
-        {requiresVehicle && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-            <label className="block text-sm font-semibold text-blue-900 mb-2">🚗 Vehículo asociado *</label>
-            {vehicles.length === 0 ? <p className="text-sm text-yellow-700 bg-yellow-50 p-2 rounded-lg">⚠️ Primero agregá un vehículo</p> : (
-              <select required value={form.vehicle_id || ''} onChange={(e) => setForm({...form, vehicle_id: e.target.value})} className="w-full px-3 py-2 border border-blue-300 rounded-xl text-sm bg-white">
-                <option value="">Seleccionar...</option>
-                {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.brand} {v.model} {v.year || ''} {v.plate ? `- ${v.plate}` : ''}</option>)}
-              </select>
-            )}
-          </div>
-        )}
-
-        {!requiresVehicle && vehicles.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1.5">Vehículo (opcional)</label>
-            <select value={form.vehicle_id || ''} onChange={(e) => setForm({...form, vehicle_id: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
-              <option value="">Sin vehículo</option>
-              {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.brand} {v.model} {v.year || ''} {v.plate ? `- ${v.plate}` : ''}</option>)}
-            </select>
-          </div>
-        )}
-
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Observaciones</label>
-          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" placeholder="Ej: Cliente paga en efectivo los días 24..." />
+          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
