@@ -95,7 +95,7 @@ export function Clients() {
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
             activeFilter === 'active' ? 'bg-emerald-200' : 'bg-emerald-100'
           }`}>
-            
+            👥
           </div>
           <div className="text-left">
             <p className="text-xs font-semibold text-slate-600 uppercase">Clientes Activos</p>
