@@ -85,16 +85,13 @@ export function Dashboard() {
     setBirthdays(upcoming);
   }
 
-  // ✅ FUNCIÓN DE COBROS A PRUEBA DE BALAS
   async function loadPayments() {
     const today = new Date();
     const currentDay = today.getDate();
     const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const daysAhead = 15; 
     
-    // Quitamos el filtro estricto de payment_collected de la consulta para evitar que falle si es null
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name)')
-      // Agregamos variantes en minúsculas por si acaso
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
       .not('payment_day', 'is', null)
@@ -105,20 +102,16 @@ export function Dashboard() {
     }
 
     const filtered = (data || []).filter((p: any) => {
-      // Forzamos que sea un número para evitar errores de comparación de texto
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
 
-      // Si ya está marcado como cobrado, lo ocultamos
       if (p.payment_collected === true) return false;
       
-      // Caso 1: Cobro dentro del mes actual
       if (paymentDay >= currentDay) {
         const daysUntil = paymentDay - currentDay;
         return daysUntil <= daysAhead;
       }
       
-      // Caso 2: Cobro en el próximo mes (cruce de mes)
       const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
       if (daysUntilEndOfMonth < daysAhead) {
         const remainingDays = daysAhead - daysUntilEndOfMonth;
@@ -172,7 +165,7 @@ export function Dashboard() {
       if (stateName === 'Cotizado' && daysSinceUpdate >= 3) {
         priority = 1;
         urgency = 'high';
-        action = '🔴 Urgente: Cotización sin respuesta';
+        action = ' Urgente: Cotización sin respuesta';
       } else if (stateName === 'Seguimiento' && daysSinceUpdate >= 5) {
         priority = 2;
         urgency = 'high';
@@ -240,7 +233,18 @@ export function Dashboard() {
   }
 
   async function markCobroDone(id: string) {
-    await supabase.from('policies').update({ payment_collected: true, payment_collected_at: new Date().toISOString() }).eq('id', id);
+    await supabase.from('policies').update({ 
+      payment_collected: true, 
+      payment_collected_at: new Date().toISOString() 
+    }).eq('id', id);
+    loadPayments();
+  }
+
+  async function markReminderSent(id: string) {
+    await supabase.from('policies').update({ 
+      payment_reminder_sent: true, 
+      payment_reminder_sent_at: new Date().toISOString() 
+    }).eq('id', id);
     loadPayments();
   }
 
@@ -304,7 +308,7 @@ export function Dashboard() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">🏠 Home</h1>
+          <h1 className="text-3xl font-bold text-slate-900"> Home</h1>
           <p className="text-sm text-slate-600 mt-1">
             Vista general de la cartera y gestión del período
           </p>
@@ -379,7 +383,7 @@ export function Dashboard() {
               </div>
             </div>
           }
-          icon="📊"
+          icon=""
           color="bg-purple-50"
           iconColor="text-purple-600"
           borderColor="border-slate-400"
@@ -409,7 +413,7 @@ export function Dashboard() {
           <div className="grid grid-cols-2 gap-6">
             <Card className="border-2 border-slate-400 bg-white">
               <div className="p-4 border-b-2 border-slate-300">
-                <h3 className="font-bold text-slate-800">🏢 Pólizas por compañía</h3>
+                <h3 className="font-bold text-slate-800"> Pólizas por compañía</h3>
               </div>
               <div className="p-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -498,10 +502,10 @@ export function Dashboard() {
             </Card>
           </div>
 
-          {/* Cobros próximos - Tarjeta grande */}
+          {/* Cobros próximos - Tarjeta grande con control de Enviado/Cobrado */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
-              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (15 días)</h3>
+              <h3 className="font-bold text-slate-800 text-lg"> Cobros próximos (15 días)</h3>
             </div>
             <div className="p-5 max-h-[500px] overflow-y-auto">
               {pendingPayments.length === 0 ? (
@@ -514,9 +518,35 @@ export function Dashboard() {
                         <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
                         <p className="text-xs text-slate-600 truncate">Día {p.payment_day}</p>
                       </div>
-                      <Button size="sm" onClick={() => markCobroDone(p.id)} className="bg-emerald-600 hover:bg-emerald-700 text-xs px-3 py-1.5 border-2 border-emerald-700">
-                        ✓ Cobrado
-                      </Button>
+                      <div className="flex gap-2">
+                        {!p.payment_reminder_sent ? (
+                          <Button 
+                            size="sm" 
+                            onClick={() => markReminderSent(p.id)} 
+                            className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 border-2 border-blue-600"
+                            title="Marcar como enviado"
+                          >
+                             Enviado
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            disabled
+                            className="bg-gray-300 text-gray-500 text-xs px-3 py-1.5 border-2 border-gray-400 cursor-not-allowed"
+                            title="Ya enviado"
+                          >
+                            ✓ Enviado
+                          </Button>
+                        )}
+                        <Button 
+                          size="sm" 
+                          onClick={() => markCobroDone(p.id)} 
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 border-2 border-emerald-700"
+                          title="Marcar como cobrado"
+                        >
+                          💵 Cobrado
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
