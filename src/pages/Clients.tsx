@@ -95,7 +95,7 @@ export function Clients() {
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
             activeFilter === 'active' ? 'bg-emerald-200' : 'bg-emerald-100'
           }`}>
-            👥
+            👤
           </div>
           <div className="text-left">
             <p className="text-xs font-semibold text-slate-600 uppercase">Clientes Activos</p>
@@ -188,7 +188,7 @@ export function Clients() {
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <WhatsAppButton phone={c.whatsapp || c.phone} size="sm" />
                         <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">✏️</button>
-                        <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">📦</button>
+                        <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600"></button>
                       </div>
                     </td>
                   </tr>
@@ -264,6 +264,11 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
   }
 
   function isPolicyVigente(policy: any) {
+    // Si tiene estado manual, usar ese
+    if (policy.policy_status === 'vigente') return true;
+    if (policy.policy_status === 'vencida' || policy.policy_status === 'anulada') return false;
+    
+    // Si no, calcular por fecha
     if (!policy.expiration_date) return false;
     const exp = new Date(policy.expiration_date);
     return exp >= new Date();
@@ -371,28 +376,41 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-600">
                             <span className="flex items-center gap-1">
-                              <span className="text-slate-400">🏢</span>
+                              <span className="text-slate-400"></span>
                               <span className="font-medium">{p.companies?.name || '—'}</span>
                             </span>
                             <span className="flex items-center gap-1">
-                              <span className="text-slate-400">🔢</span>
+                              <span className="text-slate-400"></span>
                               <span className="font-mono">{p.policy_number || '—'}</span>
                             </span>
                             <span className="flex items-center gap-1">
-                              <span className="text-slate-400">📅</span>
+                              <span className="text-slate-400"></span>
                               <span>{formatDate(p.expiration_date)}</span>
                             </span>
                           </div>
                           {p.notes && (
                             <div className="mt-3 p-2.5 bg-amber-50 border-l-4 border-amber-400 rounded-r-lg">
-                              <p className="text-xs font-semibold text-amber-800 mb-0.5">📝 Observaciones:</p>
+                              <p className="text-xs font-semibold text-amber-800 mb-0.5"> Observaciones:</p>
                               <p className="text-xs text-amber-900 whitespace-pre-wrap">{p.notes}</p>
                             </div>
                           )}
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm">✏️</button>
-                          <button onClick={() => deletePolicy(p.id)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-sm">️</button>
+                          <button onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm" title="Editar">✏️</button>
+                          <button 
+                            onClick={async () => {
+                              const newStatus = vigente ? 'vencida' : 'vigente';
+                              await supabase.from('policies').update({ policy_status: newStatus }).eq('id', p.id);
+                              loadAll();
+                            }} 
+                            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${
+                              vigente ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-red-50 text-red-600 hover:bg-red-100'
+                            }`}
+                            title={vigente ? 'Marcar como vencida' : 'Marcar como vigente'}
+                          >
+                            {vigente ? '✅' : ''}
+                          </button>
+                          <button onClick={() => deletePolicy(p.id)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-sm" title="Eliminar">🗑️</button>
                         </div>
                       </div>
                     </div>
@@ -403,13 +421,13 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button variant="danger" onClick={onArchive}>📦 Archivar</Button>
+            <Button variant="danger" onClick={onArchive}> Archivar</Button>
             <Button variant="outline" onClick={onClose}>Cerrar</Button>
           </div>
         </div>
       </Modal>
 
-      {showPolicyForm && <PolicyForm policy={editingPolicy} client={client} companies={companies} types={types} onClose={() => setShowPolicyForm(false)} onSaved={() => { setShowPolicyForm(false); loadAll(); onRefresh?.(); }} />}
+      {showPolicyForm && <PolicyForm policy={editingPolicy} client={client} vehicles={vehicles} companies={companies} types={types} onClose={() => setShowPolicyForm(false)} onSaved={() => { setShowPolicyForm(false); loadAll(); onRefresh?.(); }} />}
       {showClaimForm && <ClaimForm client={client} policies={policies} onClose={() => setShowClaimForm(false)} onSaved={() => { setShowClaimForm(false); loadAll(); }} />}
       {selectedClaim && <ClaimDetailView claim={selectedClaim} policies={policies} onClose={() => setSelectedClaim(null)} onUpdate={() => { setSelectedClaim(null); loadAll(); }} />}
     </>
@@ -523,22 +541,103 @@ function ClaimDetailView({ claim, policies, onClose, onUpdate }: any) {
   );
 }
 
-function PolicyForm({ policy, client, companies, types, onClose, onSaved }: any) {
+function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSaved }: any) {
   const [form, setForm] = useState<any>(policy ? {
     client_id: client.id, company_id: policy.company_id, policy_number: policy.policy_number,
     insurance_type_id: policy.insurance_type_id, expiration_date: policy.expiration_date?.split('T')[0],
     payment_method: policy.payment_method, payment_day: policy.payment_day || '',
-    notes: policy.notes || '',
-  } : { client_id: client.id, payment_method: 'CBU' });
+    vehicle_id: policy.vehicle_id || '', notes: policy.notes || '',
+    policy_status: policy.policy_status || '',
+  } : { client_id: client.id, payment_method: 'CBU', policy_status: '' });
+  
+  const [selectedTypeName, setSelectedTypeName] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  
+  // Campos para crear vehículo nuevo
+  const [newVehicle, setNewVehicle] = useState({
+    brand: '', model: '', year: '', plate: '', engine: '', chassis: ''
+  });
+  const [createNewVehicle, setCreateNewVehicle] = useState(false);
+
+  useEffect(() => {
+    if (form.insurance_type_id) {
+      const t = types.find((x: any) => x.id === form.insurance_type_id);
+      setSelectedTypeName(t?.name || '');
+    }
+  }, [form.insurance_type_id, types]);
+
+  const requiresVehicle = ['Automotor', 'Motovehículo', 'Automotores'].includes(selectedTypeName);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const payload = { ...form, payment_day: form.payment_day ? parseInt(form.payment_day) : null };
+    
+    let vehicleId = form.vehicle_id || null;
+    
+    // Si es un tipo que requiere vehículo y se completaron los datos del vehículo nuevo
+    if (requiresVehicle && createNewVehicle && newVehicle.brand && newVehicle.model) {
+      // Buscar si ya existe un vehículo con esa patente
+      if (newVehicle.plate) {
+        const { data: existing } = await supabase.from('vehicles')
+          .select('id')
+          .eq('client_id', client.id)
+          .eq('plate', newVehicle.plate)
+          .limit(1);
+        
+        if (existing && existing.length > 0) {
+          vehicleId = existing[0].id;
+        } else {
+          // Crear vehículo nuevo
+          const { data: newV, error } = await supabase.from('vehicles').insert({
+            client_id: client.id,
+            brand: newVehicle.brand,
+            model: newVehicle.model,
+            year: newVehicle.year ? parseInt(newVehicle.year) : null,
+            plate: newVehicle.plate || null,
+            engine: newVehicle.engine || null,
+            chassis: newVehicle.chassis || null,
+          }).select('id').single();
+          
+          if (error) {
+            alert('Error al crear vehículo: ' + error.message);
+            setLoading(false);
+            return;
+          }
+          vehicleId = newV.id;
+        }
+      } else {
+        // Sin patente, crear vehículo nuevo
+        const { data: newV, error } = await supabase.from('vehicles').insert({
+          client_id: client.id,
+          brand: newVehicle.brand,
+          model: newVehicle.model,
+          year: newVehicle.year ? parseInt(newVehicle.year) : null,
+          plate: null,
+          engine: newVehicle.engine || null,
+          chassis: newVehicle.chassis || null,
+        }).select('id').single();
+        
+        if (error) {
+          alert('Error al crear vehículo: ' + error.message);
+          setLoading(false);
+          return;
+        }
+        vehicleId = newV.id;
+      }
+    }
+    
+    const payload = { 
+      ...form, 
+      payment_day: form.payment_day ? parseInt(form.payment_day) : null, 
+      vehicle_id: vehicleId,
+      policy_status: form.policy_status || null
+    };
+    
     if (policy) await supabase.from('policies').update(payload).eq('id', policy.id);
     else await supabase.from('policies').insert(payload);
-    setLoading(false); onSaved();
+    
+    setLoading(false); 
+    onSaved();
   }
 
   return (
@@ -561,9 +660,111 @@ function PolicyForm({ policy, client, companies, types, onClose, onSaved }: any)
           )}
         </div>
 
+        {/* SECCIÓN VEHÍCULO - Solo para Automotor/Moto */}
+        {requiresVehicle && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-bold text-blue-900">🚗 Datos del vehículo</label>
+              {!policy && (
+                <label className="flex items-center gap-2 text-xs text-blue-700 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={createNewVehicle} 
+                    onChange={(e) => setCreateNewVehicle(e.target.checked)}
+                    className="rounded"
+                  />
+                  Crear vehículo nuevo
+                </label>
+              )}
+            </div>
+
+            {createNewVehicle ? (
+              // Formulario para crear vehículo nuevo
+              <div className="grid grid-cols-2 gap-3 bg-white p-3 rounded-lg">
+                <Input label="Marca *" value={newVehicle.brand} onChange={(e) => setNewVehicle({...newVehicle, brand: e.target.value})} />
+                <Input label="Modelo *" value={newVehicle.model} onChange={(e) => setNewVehicle({...newVehicle, model: e.target.value})} />
+                <Input label="Año" type="number" value={newVehicle.year} onChange={(e) => setNewVehicle({...newVehicle, year: e.target.value})} />
+                <Input label="Patente" value={newVehicle.plate} onChange={(e) => setNewVehicle({...newVehicle, plate: e.target.value.toUpperCase()})} />
+                <Input label="Motor" value={newVehicle.engine} onChange={(e) => setNewVehicle({...newVehicle, engine: e.target.value})} />
+                <Input label="Chasis" value={newVehicle.chassis} onChange={(e) => setNewVehicle({...newVehicle, chassis: e.target.value})} />
+              </div>
+            ) : (
+              // Dropdown para seleccionar vehículo existente
+              <div>
+                {vehicles.length === 0 ? (
+                  <p className="text-sm text-amber-700 bg-amber-50 p-2 rounded-lg">
+                    ⚠️ No hay vehículos cargados. Marcá "Crear vehículo nuevo" para agregar uno.
+                  </p>
+                ) : (
+                  <select 
+                    value={form.vehicle_id || ''} 
+                    onChange={(e) => setForm({...form, vehicle_id: e.target.value})} 
+                    className="w-full px-3 py-2 border border-blue-300 rounded-xl text-sm bg-white"
+                  >
+                    <option value="">Seleccionar vehículo existente...</option>
+                    {vehicles.map((v: any) => (
+                      <option key={v.id} value={v.id}>
+                        {v.brand} {v.model} {v.year || ''} {v.plate ? `- ${v.plate}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Vehículo opcional para otros tipos de seguro */}
+        {!requiresVehicle && vehicles.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-slate-600 mb-1.5">Vehículo (opcional)</label>
+            <select value={form.vehicle_id || ''} onChange={(e) => setForm({...form, vehicle_id: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-white">
+              <option value="">Sin vehículo</option>
+              {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.brand} {v.model} {v.year || ''} {v.plate ? `- ${v.plate}` : ''}</option>)}
+            </select>
+          </div>
+        )}
+
+        {/* Estado manual de la póliza */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <label className="block text-sm font-semibold text-slate-800 mb-2">Estado de la póliza</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setForm({...form, policy_status: ''})}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                !form.policy_status ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              🔄 Automático (por fecha)
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm({...form, policy_status: 'vigente'})}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                form.policy_status === 'vigente' ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              ✅ Vigente
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm({...form, policy_status: 'vencida'})}
+              className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${
+                form.policy_status === 'vencida' ? 'bg-red-100 border-red-400 text-red-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              ❌ Vencida
+            </button>
+          </div>
+          <p className="text-xs text-slate-500 mt-2">
+            Si elegís "Automático", el estado se calcula según la fecha de vencimiento.
+          </p>
+        </div>
+
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">Observaciones</label>
-          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
+          <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" placeholder="Ej: Cliente paga en efectivo los días 24..." />
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
