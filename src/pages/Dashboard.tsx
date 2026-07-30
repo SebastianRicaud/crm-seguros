@@ -104,21 +104,19 @@ export function Dashboard() {
     const filtered = (data || []).filter((p: any) => {
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
-
-      if (p.payment_collected === true) return false;
       
+      // Caso 1: El día de cobro es hoy o futuro en el mes actual
       if (paymentDay >= currentDay) {
         const daysUntil = paymentDay - currentDay;
         return daysUntil <= daysAhead;
       }
       
+      // Caso 2: El día de cobro ya pasó → mostrar del próximo mes
       const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
-      if (daysUntilEndOfMonth < daysAhead) {
-        const remainingDays = daysAhead - daysUntilEndOfMonth;
-        return paymentDay <= remainingDays;
-      }
+      const daysIntoNextMonth = paymentDay;
+      const totalDaysUntil = daysUntilEndOfMonth + daysIntoNextMonth;
       
-      return false;
+      return totalDaysUntil <= daysAhead;
     });
     
     setPayments(filtered);
@@ -165,7 +163,7 @@ export function Dashboard() {
       if (stateName === 'Cotizado' && daysSinceUpdate >= 3) {
         priority = 1;
         urgency = 'high';
-        action = ' Urgente: Cotización sin respuesta';
+        action = '🔴 Urgente: Cotización sin respuesta';
       } else if (stateName === 'Seguimiento' && daysSinceUpdate >= 5) {
         priority = 2;
         urgency = 'high';
@@ -181,7 +179,7 @@ export function Dashboard() {
       } else if (stateName === 'Nuevo' && daysSinceUpdate >= 1) {
         priority = 5;
         urgency = 'low';
-        action = '🟢 Nuevo: Primer contacto';
+        action = ' Nuevo: Primer contacto';
       } else {
         priority = 10;
         urgency = 'low';
@@ -232,18 +230,20 @@ export function Dashboard() {
     loadMiDia();
   }
 
-  async function markCobroDone(id: string) {
+  // ✅ TOGGLE: Activa/desactiva cobrado (no borra de la lista)
+  async function toggleCobrado(id: string, currentState: boolean) {
     await supabase.from('policies').update({ 
-      payment_collected: true, 
-      payment_collected_at: new Date().toISOString() 
+      payment_collected: !currentState,
+      payment_collected_at: !currentState ? new Date().toISOString() : null
     }).eq('id', id);
     loadPayments();
   }
 
-  async function markReminderSent(id: string) {
+  // ✅ TOGGLE: Activa/desactiva enviado (no borra de la lista)
+  async function toggleEnviado(id: string, currentState: boolean) {
     await supabase.from('policies').update({ 
-      payment_reminder_sent: true, 
-      payment_reminder_sent_at: new Date().toISOString() 
+      payment_reminder_sent: !currentState,
+      payment_reminder_sent_at: !currentState ? new Date().toISOString() : null
     }).eq('id', id);
     loadPayments();
   }
@@ -284,7 +284,8 @@ export function Dashboard() {
 
   if (!stats) return <Loading />;
 
-  const pendingPayments = payments.filter(p => !p.payment_collected);
+  // ✅ MOSTRAR TODOS los cobros próximos (sin filtrar por estado)
+  const pendingPayments = payments;
 
   function getDayNotes(date: string) {
     return calendarNotes.filter((n) => n.note_date === date);
@@ -308,7 +309,7 @@ export function Dashboard() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900"> Home</h1>
+          <h1 className="text-3xl font-bold text-slate-900">🏠 Home</h1>
           <p className="text-sm text-slate-600 mt-1">
             Vista general de la cartera y gestión del período
           </p>
@@ -413,7 +414,7 @@ export function Dashboard() {
           <div className="grid grid-cols-2 gap-6">
             <Card className="border-2 border-slate-400 bg-white">
               <div className="p-4 border-b-2 border-slate-300">
-                <h3 className="font-bold text-slate-800"> Pólizas por compañía</h3>
+                <h3 className="font-bold text-slate-800">🏢 Pólizas por compañía</h3>
               </div>
               <div className="p-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -502,53 +503,66 @@ export function Dashboard() {
             </Card>
           </div>
 
-          {/* Cobros próximos - Tarjeta grande con control de Enviado/Cobrado */}
+          {/* Cobros próximos - Tarjeta grande con botones toggle independientes */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
-              <h3 className="font-bold text-slate-800 text-lg"> Cobros próximos (15 días)</h3>
+              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (15 días)</h3>
             </div>
             <div className="p-5 max-h-[500px] overflow-y-auto">
               {pendingPayments.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
               ) : (
                 <div className="space-y-2">
-                  {pendingPayments.map((p: any) => (
-                    <div key={p.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border-2 border-slate-300">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                        <p className="text-xs text-slate-600 truncate">Día {p.payment_day}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        {!p.payment_reminder_sent ? (
+                  {pendingPayments.map((p: any) => {
+                    const isEnviado = p.payment_reminder_sent === true;
+                    const isCobrado = p.payment_collected === true;
+                    const ambosActivos = isEnviado && isCobrado;
+                    
+                    return (
+                      <div 
+                        key={p.id} 
+                        className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
+                          ambosActivos 
+                            ? 'bg-emerald-50 border-emerald-400 shadow-md' 
+                            : 'bg-slate-50 border-slate-300'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
+                          <p className="text-xs text-slate-600 truncate">Día {p.payment_day}</p>
+                          {ambosActivos && (
+                            <p className="text-xs text-emerald-700 font-semibold mt-1">✅ Enviado y Cobrado</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
                           <Button 
                             size="sm" 
-                            onClick={() => markReminderSent(p.id)} 
-                            className="bg-blue-500 hover:bg-blue-600 text-white text-xs px-3 py-1.5 border-2 border-blue-600"
-                            title="Marcar como enviado"
+                            onClick={() => toggleEnviado(p.id, isEnviado)} 
+                            className={`text-xs px-3 py-1.5 border-2 transition-all ${
+                              isEnviado 
+                                ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700' 
+                                : 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300'
+                            }`}
+                            title={isEnviado ? 'Quitar enviado' : 'Marcar como enviado'}
                           >
-                             Enviado
+                            {isEnviado ? '✉️ Enviado' : '📤 Enviar'}
                           </Button>
-                        ) : (
                           <Button 
                             size="sm" 
-                            disabled
-                            className="bg-gray-300 text-gray-500 text-xs px-3 py-1.5 border-2 border-gray-400 cursor-not-allowed"
-                            title="Ya enviado"
+                            onClick={() => toggleCobrado(p.id, isCobrado)} 
+                            className={`text-xs px-3 py-1.5 border-2 transition-all ${
+                              isCobrado 
+                                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700' 
+                                : 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300'
+                            }`}
+                            title={isCobrado ? 'Quitar cobrado' : 'Marcar como cobrado'}
                           >
-                            ✓ Enviado
+                            {isCobrado ? '💵 Cobrado' : ' Cobrar'}
                           </Button>
-                        )}
-                        <Button 
-                          size="sm" 
-                          onClick={() => markCobroDone(p.id)} 
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 border-2 border-emerald-700"
-                          title="Marcar como cobrado"
-                        >
-                          💵 Cobrado
-                        </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
