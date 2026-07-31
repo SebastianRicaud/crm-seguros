@@ -39,16 +39,16 @@ export function Settings() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Configuración</h1>
+        <h1 className="text-2xl font-bold">️ Configuración</h1>
         <Button variant="outline" onClick={runAutomations}>▶️ Ejecutar automatizaciones</Button>
       </div>
       <div className="flex gap-2 border-b">
         <button onClick={() => setTab('companies')} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === 'companies' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}>🏢 Compañías</button>
         <button onClick={() => setTab('types')} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === 'types' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}>🛡️ Tipos</button>
-        <button onClick={() => setTab('states')} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === 'states' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}>🚩 Estados</button>
+        <button onClick={() => setTab('states')} className={`px-4 py-2 text-sm font-medium border-b-2 ${tab === 'states' ? 'border-blue-600 text-blue-600' : 'border-transparent'}`}> Estados</button>
       </div>
       <div className="flex justify-end">
-        <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Nuevo</Button>
+        <Button onClick={() => { setEditing(null); setShowForm(true); }}>➕ Nuevo</Button>
       </div>
       {loading ? <Loading /> : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -60,13 +60,28 @@ export function Settings() {
                   {item.color && <div className="w-4 h-4 rounded-full mt-2" style={{ backgroundColor: item.color }} />}
                   {item.is_active !== undefined && <Badge color={item.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100'} className="mt-2">{item.is_active ? 'Activo' : 'Inactivo'}</Badge>}
                 </div>
-                <button onClick={() => remove(item.id)} className="text-red-500">🗑️</button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => { setEditing(item); setShowForm(true); }} 
+                    className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded"
+                    title="Editar"
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    onClick={() => remove(item.id)} 
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
+                    title="Eliminar"
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
             </Card>
           ))}
         </div>
       )}
-      {showForm && <SettingsForm tab={tab} item={editing} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); load(); }} />}
+      {showForm && <SettingsForm tab={tab} item={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); load(); }} />}
     </div>
   );
 }
@@ -84,13 +99,13 @@ function SettingsForm({ tab, item, onClose, onSaved }: any) {
   }
 
   return (
-    <Modal open onClose={onClose} title={item ? 'Editar' : 'Nuevo'}>
+    <Modal open onClose={onClose} title={item ? '✏️ Editar' : '➕ Nuevo'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input label="Nombre *" required value={form.name||''} onChange={(e) => setForm({...form, name: e.target.value})} />
         {tab === 'states' && <Input label="Color (hex)" value={form.color||'#6b7280'} onChange={(e) => setForm({...form, color: e.target.value})} />}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" disabled={loading}>{loading ? 'Guardando...' : 'Guardar'}</Button>
+          <Button type="button" variant="outline" onClick={onClose}>❌ Cancelar</Button>
+          <Button type="submit" disabled={loading}>{loading ? '⏳ Guardando...' : '💾 Guardar'}</Button>
         </div>
       </form>
     </Modal>
