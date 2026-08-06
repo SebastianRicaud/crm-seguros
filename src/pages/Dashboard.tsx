@@ -10,6 +10,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 
+// Asesores fijos con colores
+const ADVISORS: Record<string, { color: string; label: string }> = {
+  'Naty': { color: 'bg-pink-100 text-pink-700 border-pink-300', label: 'Naty' },
+  'Seba': { color: 'bg-sky-100 text-sky-700 border-sky-300', label: 'Seba' }
+};
+
 export function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
@@ -91,7 +97,8 @@ export function Dashboard() {
     const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const daysAhead = 15; 
     
-    const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name)')
+    // ✅ Agregado 'advisor' al select de clients
+    const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name, advisor)')
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
       .not('payment_day', 'is', null)
@@ -179,7 +186,7 @@ export function Dashboard() {
       } else if (stateName === 'Nuevo' && daysSinceUpdate >= 1) {
         priority = 5;
         urgency = 'low';
-        action = ' Nuevo: Primer contacto';
+        action = '🟢 Nuevo: Primer contacto';
       } else {
         priority = 10;
         urgency = 'low';
@@ -503,7 +510,7 @@ export function Dashboard() {
             </Card>
           </div>
 
-          {/* Cobros próximos - Tarjeta grande con botones toggle independientes */}
+          {/* Cobros próximos - Tarjeta grande con botones toggle independientes y ASESOR */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
               <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (15 días)</h3>
@@ -517,6 +524,7 @@ export function Dashboard() {
                     const isEnviado = p.payment_reminder_sent === true;
                     const isCobrado = p.payment_collected === true;
                     const ambosActivos = isEnviado && isCobrado;
+                    const advisorInfo = p.clients?.advisor ? ADVISORS[p.clients.advisor] : null;
                     
                     return (
                       <div 
@@ -529,7 +537,17 @@ export function Dashboard() {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                          <p className="text-xs text-slate-600 truncate">Día {p.payment_day}</p>
+                          <p className="text-xs text-slate-600 truncate">📅 Día {p.payment_day}</p>
+                          
+                          {/* ✅ BADGE DEL ASESOR */}
+                          {advisorInfo && (
+                            <div className="mt-1">
+                              <Badge color={advisorInfo.color}>
+                                {p.clients?.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
+                              </Badge>
+                            </div>
+                          )}
+                          
                           {ambosActivos && (
                             <p className="text-xs text-emerald-700 font-semibold mt-1">✅ Enviado y Cobrado</p>
                           )}
@@ -557,7 +575,7 @@ export function Dashboard() {
                             }`}
                             title={isCobrado ? 'Quitar cobrado' : 'Marcar como cobrado'}
                           >
-                            {isCobrado ? '💵 Cobrado' : ' Cobrar'}
+                            {isCobrado ? '💵 Cobrado' : '💰 Cobrar'}
                           </Button>
                         </div>
                       </div>

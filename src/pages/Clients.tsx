@@ -10,6 +10,12 @@ import { Loading } from '@/components/common/Loading';
 import { getInitials, formatDate } from '@/lib/utils';
 import { CLAIM_STATUSES } from '@/lib/constants';
 
+// Asesores fijos con colores
+const ADVISORS = {
+  'Naty': { color: 'bg-pink-100 text-pink-700 border-pink-300', label: 'Naty' },
+  'Seba': { color: 'bg-sky-100 text-sky-700 border-sky-300', label: 'Seba' }
+};
+
 export function Clients() {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +25,7 @@ export function Clients() {
   const [showClientForm, setShowClientForm] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [clientPolicyCounts, setClientPolicyCounts] = useState<Record<string, number>>({});
+  const [advisorFilter, setAdvisorFilter] = useState<string>('all');
 
   useEffect(() => { load(); }, []);
 
@@ -58,6 +65,9 @@ export function Clients() {
       
       if (!matchesSearch) return false;
       
+      // Filtro por asesor
+      if (advisorFilter !== 'all' && c.advisor !== advisorFilter) return false;
+      
       const policyCount = clientPolicyCounts[c.id] || 0;
       
       if (activeFilter === 'active') return policyCount > 0;
@@ -80,6 +90,28 @@ export function Clients() {
           <p className="text-sm text-slate-500 mt-1">{filtered.length} clientes · Ordenados alfabéticamente</p>
         </div>
         <Button onClick={() => { setEditing(null); setShowClientForm(true); }}>➕ Nuevo cliente</Button>
+      </div>
+
+      {/* FILTRO POR ASESOR */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-slate-600">📊 Filtrar por asesor:</span>
+        <select 
+          value={advisorFilter} 
+          onChange={(e) => setAdvisorFilter(e.target.value)}
+          className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white"
+        >
+          <option value="all">Todos los asesores</option>
+          <option value="Naty"> Naty</option>
+          <option value="Seba">🔵 Seba</option>
+        </select>
+        {advisorFilter !== 'all' && (
+          <button 
+            onClick={() => setAdvisorFilter('all')}
+            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+          >
+            ✕ Quitar filtro
+          </button>
+        )}
       </div>
 
       {/* BOTONES DE FILTRO */}
@@ -115,7 +147,7 @@ export function Clients() {
           <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
             activeFilter === 'inactive' ? 'bg-slate-300' : 'bg-slate-200'
           }`}>
-            
+            🚫
           </div>
           <div className="text-left">
             <p className="text-xs font-semibold text-slate-600 uppercase">Clientes Inactivos</p>
@@ -131,7 +163,7 @@ export function Clients() {
           <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
             activeFilter === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'
           }`}>
-            {activeFilter === 'active' ? '✅ Con pólizas vigentes' : '❌ Sin pólizas vigentes'}
+            {activeFilter === 'active' ? '✅ Con pólizas vigentes' : '🚫 Sin pólizas vigentes'}
           </span>
           <button 
             onClick={() => setActiveFilter('all')}
@@ -152,6 +184,7 @@ export function Clients() {
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Cliente</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">DNI</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Contacto</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Asesor</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Pólizas Vigentes</th>
                 <th className="text-right px-4 py-3 text-xs font-semibold text-slate-600 uppercase">Acciones</th>
               </tr>
@@ -159,6 +192,8 @@ export function Clients() {
             <tbody className="divide-y divide-slate-100">
               {filtered.map((c) => {
                 const policyCount = clientPolicyCounts[c.id] || 0;
+                const advisorInfo = c.advisor ? ADVISORS[c.advisor as keyof typeof ADVISORS] : null;
+                
                 return (
                   <tr key={c.id} onClick={() => setSelectedClient(c)} className="hover:bg-slate-50 cursor-pointer transition-colors">
                     <td className="px-4 py-3">
@@ -180,6 +215,15 @@ export function Clients() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
+                      {advisorInfo ? (
+                        <Badge color={advisorInfo.color}>
+                          {c.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
                       <Badge color={policyCount > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}>
                         {policyCount} {policyCount === 1 ? 'póliza' : 'pólizas'}
                       </Badge>
@@ -187,7 +231,7 @@ export function Clients() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <WhatsAppButton phone={c.whatsapp || c.phone} size="sm" />
-                        <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">️</button>
+                        <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">✏️</button>
                         <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">📦</button>
                       </div>
                     </td>
@@ -195,7 +239,7 @@ export function Clients() {
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-500">No se encontraron clientes</td></tr>
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-slate-500">No se encontraron clientes</td></tr>
               )}
             </tbody>
           </table>
@@ -284,7 +328,14 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg">{getInitials(client.first_name, client.last_name)}</div>
                 <div>
                   <h2 className="text-xl font-bold text-slate-900">{client.first_name} {client.last_name}</h2>
-                  <p className="text-xs text-slate-500"> Cliente desde {formatDate(client.created_at)}</p>
+                  <p className="text-xs text-slate-500">📅 Cliente desde {formatDate(client.created_at)}</p>
+                  {client.advisor && (
+                    <div className="mt-1">
+                      <Badge color={ADVISORS[client.advisor as keyof typeof ADVISORS]?.color || 'bg-slate-100'}>
+                        {client.advisor === 'Naty' ? '🌸' : '🔵'} Asesor: {client.advisor}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -296,10 +347,10 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
               <div><p className="text-xs text-slate-500"> DNI</p><p className="font-medium">{client.dni || '—'}</p></div>
               <div><p className="text-xs text-slate-500"> Fecha nac.</p><p className="font-medium">{formatDate(client.birth_date)}</p></div>
               <div><p className="text-xs text-slate-500">📞 Teléfono</p><p className="font-medium">{client.phone || '—'}</p></div>
-              <div><p className="text-xs text-slate-500"> WhatsApp</p><p className="font-medium">{client.whatsapp || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">💬 WhatsApp</p><p className="font-medium">{client.whatsapp || '—'}</p></div>
               <div><p className="text-xs text-slate-500">📧 Email</p><p className="font-medium">{client.email || '—'}</p></div>
-              <div><p className="text-xs text-slate-500">🏙️ Ciudad</p><p className="font-medium">{client.city || '—'}</p></div>
-              <div><p className="text-xs text-slate-500"> Provincia</p><p className="font-medium">{client.province || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">️ Ciudad</p><p className="font-medium">{client.city || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">📍 Provincia</p><p className="font-medium">{client.province || '—'}</p></div>
               <div><p className="text-xs text-slate-500">🏠 Dirección</p><p className="font-medium">{client.address || '—'}</p></div>
             </div>
             {client.notes && <div className="mt-3 p-3 bg-white rounded-xl"><p className="text-xs text-slate-500 mb-1">📝 Observaciones</p><p className="text-sm text-slate-700">{client.notes}</p></div>}
@@ -337,9 +388,9 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
                         <p className="font-semibold text-sm text-slate-900">{v.brand} {v.model} {v.year}</p>
-                        <p className="text-xs text-slate-500"> Patente: {v.plate || '—'}</p>
-                        {v.engine && <p className="text-xs text-slate-500">⚙️ Motor: {v.engine}</p>}
-                        {v.chassis && <p className="text-xs text-slate-500">🔧 Chasis: {v.chassis}</p>}
+                        <p className="text-xs text-slate-500">🔢 Patente: {v.plate || '—'}</p>
+                        {v.engine && <p className="text-xs text-slate-500">️ Motor: {v.engine}</p>}
+                        {v.chassis && <p className="text-xs text-slate-500"> Chasis: {v.chassis}</p>}
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => setSelectedVehicle(v)}>📄 Documentos</Button>
@@ -357,7 +408,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
               <h3 className="font-semibold text-slate-900">📋 Pólizas vigentes ({policies.length})</h3>
               <Button size="sm" onClick={() => { setEditingPolicy(null); setShowPolicyForm(true); }}>➕ Nueva póliza</Button>
             </div>
-            {policies.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">📭 Sin pólizas</p> : (
+            {policies.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl"> Sin pólizas</p> : (
               <div className="space-y-3">
                 {policies.map((p: any) => {
                   const vigente = isPolicyVigente(p);
@@ -406,7 +457,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                           
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 text-xs text-slate-600">
                             <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
-                              <span className="text-lg"></span>
+                              <span className="text-lg">🏢</span>
                               <span className="font-medium">{p.companies?.name || '—'}</span>
                             </span>
                             <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
@@ -414,7 +465,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                               <span className="font-mono font-medium">{p.policy_number || '—'}</span>
                             </span>
                             <span className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded">
-                              <span className="text-lg"></span>
+                              <span className="text-lg">📅</span>
                               <span className="font-medium">Vence: {formatDate(p.expiration_date)}</span>
                             </span>
                           </div>
@@ -426,7 +477,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                           )}
                         </div>
                         <div className="flex flex-col gap-1 flex-shrink-0">
-                          <button onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} className="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm" title="️ Editar">✏️</button>
+                          <button onClick={() => { setEditingPolicy(p); setShowPolicyForm(true); }} className="w-9 h-9 flex items-center justify-center rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-sm" title="✏️ Editar">✏️</button>
                           <button 
                             onClick={async () => {
                               const newStatus = vigente ? 'vencida' : 'vigente';
@@ -440,7 +491,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                           >
                             {vigente ? '✅' : '❌'}
                           </button>
-                          <button onClick={() => deletePolicy(p.id)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-sm" title="🗑️ Eliminar">🗑️</button>
+                          <button onClick={() => deletePolicy(p.id)} className="w-9 h-9 flex items-center justify-center rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors text-sm" title="🗑️ Eliminar">️</button>
                         </div>
                       </div>
                     </div>
@@ -452,7 +503,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
 
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="danger" onClick={onArchive}>📦 Archivar</Button>
-            <Button variant="outline" onClick={onClose}>❌ Cerrar</Button>
+            <Button variant="outline" onClick={onClose}> Cerrar</Button>
           </div>
         </div>
       </Modal>
@@ -494,7 +545,7 @@ function ClaimForm({ client, policies, onClose, onSaved }: any) {
           <textarea required value={form.description||''} onChange={(e) => setForm({...form, description: e.target.value})} rows={3} placeholder="Describí el siniestro..." className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose}>❌ Cancelar</Button>
+          <Button type="button" variant="outline" onClick={onClose}> Cancelar</Button>
           <Button type="submit" disabled={loading}>{loading ? '⏳ Guardando...' : '💾 Crear siniestro'}</Button>
         </div>
       </form>
@@ -548,7 +599,7 @@ function ClaimDetailView({ claim, policies, onClose, onUpdate }: any) {
         </div>
 
         <div>
-          <h3 className="font-semibold text-slate-900 mb-3">💬 Historial de seguimiento ({notes.length})</h3>
+          <h3 className="font-semibold text-slate-900 mb-3"> Historial de seguimiento ({notes.length})</h3>
           <div className="space-y-2 mb-4 max-h-80 overflow-y-auto">
             {notes.length === 0 ? <p className="text-sm text-slate-500 text-center py-4">📭 Sin notas de seguimiento aún</p> :
               notes.map((n) => (
@@ -684,7 +735,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
             options={[{ value: 'CBU', label: 'CBU' }, { value: 'Tarjeta', label: 'Tarjeta' }, { value: 'Efectivo', label: 'Efectivo' }, { value: 'Cheques', label: 'Cheques' }]} />
           {['Efectivo', 'Cheques'].includes(form.payment_method) && (
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1.5">📆 Día de cobro (1-31) *</label>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5"> Día de cobro (1-31) *</label>
               <input type="number" min="1" max="31" required value={form.payment_day || ''} onChange={(e) => setForm({...form, payment_day: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
             </div>
           )}
@@ -695,7 +746,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <label className="block text-sm font-bold text-blue-900">🚗 Datos del vehículo</label>
-              {!policy && (
+              {(vehicles.length === 0 || !policy) && (
                 <label className="flex items-center gap-2 text-xs text-blue-700 cursor-pointer">
                   <input 
                     type="checkbox" 
@@ -822,20 +873,35 @@ function ClientForm({ client, onClose, onSaved }: any) {
   }
 
   return (
-    <Modal open onClose={onClose} title={client ? '✏️ Editar cliente' : '➕ Nuevo cliente'} size="lg">
+    <Modal open onClose={onClose} title={client ? '️ Editar cliente' : '➕ Nuevo cliente'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <Input label="👤 Nombre *" required value={form.first_name||''} onChange={(e) => setForm({...form, first_name: e.target.value})} />
           <Input label="👤 Apellido *" required value={form.last_name||''} onChange={(e) => setForm({...form, last_name: e.target.value})} />
-          <Input label=" DNI" value={form.dni||''} onChange={(e) => setForm({...form, dni: e.target.value})} />
+          <Input label="🆔 DNI" value={form.dni||''} onChange={(e) => setForm({...form, dni: e.target.value})} />
           <Input label="🎂 Fecha nac." type="date" value={form.birth_date||''} onChange={(e) => setForm({...form, birth_date: e.target.value})} />
           <Input label="📞 Teléfono" value={form.phone||''} onChange={(e) => setForm({...form, phone: e.target.value})} />
           <Input label="💬 WhatsApp" value={form.whatsapp||''} onChange={(e) => setForm({...form, whatsapp: e.target.value})} />
           <Input label="📧 Email" type="email" value={form.email||''} onChange={(e) => setForm({...form, email: e.target.value})} />
           <Input label="🏙️ Ciudad" value={form.city||''} onChange={(e) => setForm({...form, city: e.target.value})} />
           <Input label="📍 Provincia" value={form.province||''} onChange={(e) => setForm({...form, province: e.target.value})} />
-          <Input label="🏠 Dirección" value={form.address||''} onChange={(e) => setForm({...form, address: e.target.value})} />
+          <Input label=" Dirección" value={form.address||''} onChange={(e) => setForm({...form, address: e.target.value})} />
         </div>
+        
+        {/* CAMPO ASESOR */}
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5"> Asesor/Productor</label>
+          <select 
+            value={form.advisor || ''} 
+            onChange={(e) => setForm({...form, advisor: e.target.value})}
+            className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm"
+          >
+            <option value="">Seleccionar asesor...</option>
+            <option value="Naty"> Naty</option>
+            <option value="Seba">🔵 Seba</option>
+          </select>
+        </div>
+        
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1.5">📝 Observaciones</label>
           <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
@@ -843,7 +909,7 @@ function ClientForm({ client, onClose, onSaved }: any) {
         {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose} disabled={loading}>❌ Cancelar</Button>
-          <Button type="submit" disabled={loading}>{loading ? '⏳ Guardando...' : client ? ' Actualizar' : '➕ Crear cliente'}</Button>
+          <Button type="submit" disabled={loading}>{loading ? '⏳ Guardando...' : client ? '💾 Actualizar' : '➕ Crear cliente'}</Button>
         </div>
       </form>
     </Modal>
