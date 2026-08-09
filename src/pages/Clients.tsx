@@ -88,7 +88,7 @@ export function Clients() {
           <h1 className="text-3xl font-bold text-slate-900">👥 Clientes</h1>
           <p className="text-sm text-slate-500 mt-1">{filtered.length} clientes · Ordenados alfabéticamente</p>
         </div>
-        <Button onClick={() => { setEditing(null); setShowClientForm(true); }}> Nuevo cliente</Button>
+        <Button onClick={() => { setEditing(null); setShowClientForm(true); }}>➕ Nuevo cliente</Button>
       </div>
 
       {/* FILTRO POR ASESOR */}
@@ -100,8 +100,8 @@ export function Clients() {
           className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white"
         >
           <option value="all">Todos los asesores</option>
-          <option value="Naty"> Naty</option>
-          <option value="Seba">🔵 Seba</option>
+          <option value="Naty">🌸 Naty</option>
+          <option value="Seba"> Seba</option>
         </select>
         {advisorFilter !== 'all' && (
           <button 
@@ -173,7 +173,7 @@ export function Clients() {
         </div>
       )}
 
-      <input type="text" placeholder=" Buscar por nombre, DNI, email..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full max-w-md px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm" />
+      <input type="text" placeholder="🔍 Buscar por nombre, DNI, email..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full max-w-md px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm" />
 
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -210,13 +210,13 @@ export function Clients() {
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
                         {c.phone && <p className="text-xs text-slate-600">📞 {c.phone}</p>}
-                        {c.whatsapp && <p className="text-xs text-slate-600">💬 {c.whatsapp}</p>}
+                        {c.whatsapp && <p className="text-xs text-slate-600"> {c.whatsapp}</p>}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       {advisorInfo ? (
                         <Badge color={advisorInfo.color}>
-                          {c.advisor === 'Naty' ? '' : '🔵'} {advisorInfo.label}
+                          {c.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
                         </Badge>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
@@ -230,7 +230,7 @@ export function Clients() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                         <WhatsAppButton phone={c.whatsapp || c.phone} size="sm" />
-                        <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">✏️</button>
+                        <button onClick={() => { setEditing(c); setShowClientForm(true); }} className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600">️</button>
                         <button onClick={() => archive(c.id)} className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600">📦</button>
                       </div>
                     </td>
@@ -345,21 +345,21 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
               <div><p className="text-xs text-slate-500">🆔 DNI</p><p className="font-medium">{client.dni || '—'}</p></div>
               <div><p className="text-xs text-slate-500">🎂 Fecha nac.</p><p className="font-medium">{formatDate(client.birth_date)}</p></div>
-              <div><p className="text-xs text-slate-500">📞 Teléfono</p><p className="font-medium">{client.phone || '—'}</p></div>
+              <div><p className="text-xs text-slate-500"> Teléfono</p><p className="font-medium">{client.phone || '—'}</p></div>
               <div><p className="text-xs text-slate-500">💬 WhatsApp</p><p className="font-medium">{client.whatsapp || '—'}</p></div>
               <div><p className="text-xs text-slate-500">📧 Email</p><p className="font-medium">{client.email || '—'}</p></div>
               <div><p className="text-xs text-slate-500">🏙️ Ciudad</p><p className="font-medium">{client.city || '—'}</p></div>
-              <div><p className="text-xs text-slate-500">📍 Provincia</p><p className="font-medium">{client.province || '—'}</p></div>
-              <div><p className="text-xs text-slate-500"> Dirección</p><p className="font-medium">{client.address || '—'}</p></div>
+              <div><p className="text-xs text-slate-500"> Provincia</p><p className="font-medium">{client.province || '—'}</p></div>
+              <div><p className="text-xs text-slate-500">🏠 Dirección</p><p className="font-medium">{client.address || '—'}</p></div>
             </div>
             {client.notes && <div className="mt-3 p-3 bg-white rounded-xl"><p className="text-xs text-slate-500 mb-1">📝 Observaciones</p><p className="text-sm text-slate-700">{client.notes}</p></div>}
           </div>
 
           <div className="grid grid-cols-4 gap-3">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 text-center border border-blue-200/50"><p className="text-2xl font-bold text-blue-700">{vehicles.length}</p><p className="text-xs text-blue-600 font-medium"> Vehículos</p></div>
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-3 text-center border border-blue-200/50"><p className="text-2xl font-bold text-blue-700">{vehicles.length}</p><p className="text-xs text-blue-600 font-medium">🚗 Vehículos</p></div>
             <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-3 text-center border border-emerald-200/50"><p className="text-2xl font-bold text-emerald-700">{policies.length}</p><p className="text-xs text-emerald-600 font-medium">📋 Pólizas</p></div>
             <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-3 text-center border border-amber-200/50"><p className="text-2xl font-bold text-amber-700">{tasks.filter((t: any) => t.status !== 'Finalizada').length}</p><p className="text-xs text-amber-600 font-medium">✅ Gestiones</p></div>
-            <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl p-3 text-center border border-red-200/50"><p className="text-2xl font-bold text-red-700">{claims.filter((c: any) => c.status !== 'Cerrado').length}</p><p className="text-xs text-red-600 font-medium">️ Siniestros</p></div>
+            <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl p-3 text-center border border-red-200/50"><p className="text-2xl font-bold text-red-700">{claims.filter((c: any) => c.status !== 'Cerrado').length}</p><p className="text-xs text-red-600 font-medium">⚠️ Siniestros</p></div>
           </div>
 
           <div>
@@ -377,7 +377,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                   <Input label="Motor" name="engine" />
                   <Input label="Chasis" name="chassis" />
                 </div>
-                <Button type="submit" size="sm"> Guardar vehículo</Button>
+                <Button type="submit" size="sm">💾 Guardar vehículo</Button>
               </form>
             )}
             {vehicles.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">📭 Sin vehículos</p> : (
@@ -389,10 +389,10 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                         <p className="font-semibold text-sm text-slate-900">{v.brand} {v.model} {v.year}</p>
                         <p className="text-xs text-slate-500"> Patente: {v.plate || '—'}</p>
                         {v.engine && <p className="text-xs text-slate-500">⚙️ Motor: {v.engine}</p>}
-                        {v.chassis && <p className="text-xs text-slate-500">🔧 Chasis: {v.chassis}</p>}
+                        {v.chassis && <p className="text-xs text-slate-500"> Chasis: {v.chassis}</p>}
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setSelectedVehicle(v)}> Documentos</Button>
+                        <Button size="sm" variant="outline" onClick={() => setSelectedVehicle(v)}>📄 Documentos</Button>
                         <button onClick={() => deleteVehicle(v.id)} className="text-red-400 text-xs px-2 py-1 bg-red-50 rounded-lg hover:bg-red-100">🗑️</button>
                       </div>
                     </div>
@@ -407,7 +407,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
               <h3 className="font-semibold text-slate-900">📋 Pólizas ({policies.length})</h3>
               <Button size="sm" onClick={() => { setEditingPolicy(null); setShowPolicyForm(true); }}>➕ Nueva póliza</Button>
             </div>
-            {policies.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl"> Sin pólizas</p> : (
+            {policies.length === 0 ? <p className="text-sm text-slate-500 text-center py-4 bg-slate-50 rounded-xl">📭 Sin pólizas</p> : (
               <div className="space-y-3">
                 {policies.map((p: any) => {
                   const vigente = isPolicyVigente(p);
@@ -425,7 +425,7 @@ function ClientDetailView({ client, onClose, onEdit, onArchive, onRefresh }: any
                               vigente ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-700 border border-red-200'
                             }`}>
                               <span className={`w-2 h-2 rounded-full ${vigente ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
-                              {vigente ? '✅ Vigente' : ' Vencida'}
+                              {vigente ? '✅ Vigente' : '❌ Vencida'}
                             </span>
                           </div>
                           
@@ -566,14 +566,14 @@ function PolicyDetailView({ policy, client, onClose, onEdit, onRenew, onRefresh 
                 </span>
                 <span className="text-slate-400">•</span>
                 <span className="flex items-center gap-1">
-                  <span></span>
+                  <span>🏢</span>
                   {policy.companies?.name || '—'}
                 </span>
                 {client.advisor && (
                   <>
                     <span className="text-slate-400">•</span>
                     <span className="flex items-center gap-1">
-                      <span>‍💼</span>
+                      <span>🧑‍💼</span>
                       {client.advisor === 'Naty' ? '🌸' : '🔵'} {client.advisor}
                     </span>
                   </>
@@ -596,7 +596,7 @@ function PolicyDetailView({ policy, client, onClose, onEdit, onRenew, onRefresh 
         {/* Información General */}
         <div className="bg-white rounded-xl border-2 border-slate-200 p-4">
           <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
-            <span>📋</span> INFORMACIÓN GENERAL
+            <span></span> INFORMACIÓN GENERAL
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-slate-50 rounded-lg p-3">
@@ -660,7 +660,7 @@ function PolicyDetailView({ policy, client, onClose, onEdit, onRenew, onRefresh 
 
         {/* Botones de acción */}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={onEdit}>️ Editar</Button>
+          <Button variant="outline" onClick={onEdit}>✏️ Editar</Button>
           {vigente && <Button variant="outline" onClick={onRenew}>🔄 Renovar</Button>}
           <Button onClick={onClose}>❌ Cerrar</Button>
         </div>
@@ -681,35 +681,57 @@ function RenewPolicyModal({ policy, onClose, onRenewed }: any) {
       return;
     }
     
+    if (!confirm(`⚠️ ¿Confirmás renovar la póliza ${policy.policy_number}?\n\nLa póliza anterior será ELIMINADA y reemplazada por la nueva.`)) {
+      return;
+    }
+    
     setLoading(true);
     try {
-      // 1. Crear la nueva póliza vinculada a la anterior (guardando el número viejo)
-      const { error: insertError } = await supabase.from('policies').insert({
-        client_id: policy.client_id,
-        company_id: policy.company_id,
-        insurance_type_id: policy.insurance_type_id,
-        policy_number: newPolicyNumber,
-        expiration_date: newExpirationDate || policy.expiration_date,
-        payment_method: policy.payment_method,
-        payment_day: policy.payment_day,
-        vehicle_id: policy.vehicle_id,
-        notes: policy.notes,
-        renewed_from: policy.id,
-        previous_policy_number: policy.policy_number, // ← Guarda el número de la póliza vieja
-      });
+      console.log('🔄 Iniciando renovación de póliza:', policy.id);
+      
+      // 1. Crear la nueva póliza
+      const { data: newPolicy, error: insertError } = await supabase
+        .from('policies')
+        .insert({
+          client_id: policy.client_id,
+          company_id: policy.company_id,
+          insurance_type_id: policy.insurance_type_id,
+          policy_number: newPolicyNumber,
+          expiration_date: newExpirationDate || policy.expiration_date,
+          payment_method: policy.payment_method,
+          payment_day: policy.payment_day,
+          vehicle_id: policy.vehicle_id,
+          notes: policy.notes,
+          renewed_from: policy.id,
+          previous_policy_number: policy.policy_number,
+        })
+        .select()
+        .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error('❌ Error al crear nueva póliza:', insertError);
+        throw new Error('Error al crear la nueva póliza: ' + insertError.message);
+      }
+      
+      console.log('✅ Nueva póliza creada:', newPolicy.id);
       
       // 2. ELIMINAR la póliza vieja
-      const { error: deleteError } = await supabase.from('policies')
+      const { error: deleteError } = await supabase
+        .from('policies')
         .delete()
         .eq('id', policy.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('❌ Error al eliminar póliza vieja:', deleteError);
+        throw new Error('Error al eliminar la póliza anterior: ' + deleteError.message);
+      }
       
-      alert('✅ Póliza renovada correctamente. La póliza anterior fue eliminada.');
+      console.log('✅ Póliza vieja eliminada:', policy.id);
+      
+      alert('✅ Póliza renovada correctamente.\n\nLa póliza anterior fue eliminada.');
       onRenewed();
     } catch (err: any) {
+      console.error(' Error en renovación:', err);
       alert('❌ Error: ' + err.message);
     } finally {
       setLoading(false);
@@ -719,12 +741,12 @@ function RenewPolicyModal({ policy, onClose, onRenewed }: any) {
   return (
     <Modal open onClose={onClose} title="🔄 Renovar Póliza" size="md">
       <div className="space-y-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-900 mb-2">
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+          <p className="text-sm text-amber-900 mb-2">
             <span className="font-semibold">Póliza actual:</span> {policy.policy_number}
           </p>
-          <p className="text-xs text-blue-700">
-            ⚠️ Al renovar, la póliza actual será <strong>eliminada</strong> y reemplazada por la nueva.
+          <p className="text-xs text-amber-700">
+            ⚠️ Al renovar, la póliza actual será <strong>ELIMINADA</strong> y reemplazada por la nueva.
           </p>
         </div>
 
@@ -765,7 +787,7 @@ function ClaimForm({ client, policies, onClose, onSaved }: any) {
   }
 
   return (
-    <Modal open onClose={onClose} title=" Nuevo siniestro" size="md">
+    <Modal open onClose={onClose} title="🚨 Nuevo siniestro" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="p-3 bg-blue-50 rounded-xl">
           <p className="text-xs text-blue-700">👤 Cliente: <span className="font-semibold">{client.first_name} {client.last_name}</span></p>
@@ -775,7 +797,7 @@ function ClaimForm({ client, policies, onClose, onSaved }: any) {
             options={[{ value: '', label: 'Sin póliza específica' }, ...policies.map((p: any) => ({ value: p.id, label: `${p.insurance_types?.name} - ${p.policy_number}` }))]} />
         )}
         <div className="grid grid-cols-2 gap-4">
-          <Input label="📅 Fecha *" required type="date" value={form.claim_date} onChange={(e) => setForm({...form, claim_date: e.target.value})} />
+          <Input label=" Fecha *" required type="date" value={form.claim_date} onChange={(e) => setForm({...form, claim_date: e.target.value})} />
           <Select label="📊 Estado" value={form.status} onChange={(e) => setForm({...form, status: e.target.value})} options={CLAIM_STATUSES.map((s) => ({ value: s.value, label: s.label }))} />
         </div>
         <div>
@@ -821,13 +843,13 @@ function ClaimDetailView({ claim, policies, onClose, onUpdate }: any) {
   const policy = policies.find((p: any) => p.id === claim.policy_id);
 
   return (
-    <Modal open onClose={onClose} title="📝 Seguimiento del siniestro" size="lg">
+    <Modal open onClose={onClose} title=" Seguimiento del siniestro" size="lg">
       <div className="space-y-4">
         <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl p-4">
           <div className="flex justify-between items-start mb-3">
             <div>
               <p className="text-xs text-slate-500">📅 Fecha: <span className="font-medium">{formatDate(claim.claim_date)}</span></p>
-              {policy && <p className="text-xs text-blue-600 mt-1">🛡️ Póliza: {policy.policy_number}</p>}
+              {policy && <p className="text-xs text-blue-600 mt-1">️ Póliza: {policy.policy_number}</p>}
             </div>
             <select value={claim.status} onChange={(e) => updateStatus(e.target.value)} className="text-sm px-3 py-1 border border-slate-200 rounded-lg bg-white">
               {CLAIM_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -844,7 +866,7 @@ function ClaimDetailView({ claim, policies, onClose, onUpdate }: any) {
                 <div key={n.id} className="bg-slate-50 rounded-xl p-3">
                   <div className="flex justify-between items-start">
                     <p className="text-sm text-slate-700 flex-1">{n.content}</p>
-                    <button onClick={() => deleteNote(n.id)} className="text-red-400 text-xs ml-2">🗑️</button>
+                    <button onClick={() => deleteNote(n.id)} className="text-red-400 text-xs ml-2">️</button>
                   </div>
                   <p className="text-xs text-slate-400 mt-1">🕐 {new Date(n.created_at).toLocaleString('es-AR')}</p>
                 </div>
@@ -932,7 +954,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
         }).select('id').single();
         
         if (error) {
-          alert(' Error al crear vehículo: ' + error.message);
+          alert('❌ Error al crear vehículo: ' + error.message);
           setLoading(false);
           return;
         }
@@ -963,7 +985,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
           <Select label="🛡️ Tipo de seguro *" required value={form.insurance_type_id||''} onChange={(e) => setForm({...form, insurance_type_id: e.target.value})}
             options={[{ value: '', label: 'Seleccionar...' }, ...types.map((t: any) => ({ value: t.id, label: t.name }))]} />
           <Input label="🔢 N° Póliza *" required value={form.policy_number||''} onChange={(e) => setForm({...form, policy_number: e.target.value})} />
-          <Input label=" Vencimiento *" required type="date" value={form.expiration_date||''} onChange={(e) => setForm({...form, expiration_date: e.target.value})} />
+          <Input label="📅 Vencimiento *" required type="date" value={form.expiration_date||''} onChange={(e) => setForm({...form, expiration_date: e.target.value})} />
           <Select label="💰 Forma de pago *" required value={form.payment_method} onChange={(e) => setForm({...form, payment_method: e.target.value})}
             options={[{ value: 'CBU', label: 'CBU' }, { value: 'Tarjeta', label: 'Tarjeta' }, { value: 'Efectivo', label: 'Efectivo' }, { value: 'Cheques', label: 'Cheques' }]} />
           {['Efectivo', 'Cheques'].includes(form.payment_method) && (
@@ -996,7 +1018,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
                 <Input label="Marca *" value={newVehicle.brand} onChange={(e) => setNewVehicle({...newVehicle, brand: e.target.value})} />
                 <Input label="Modelo *" value={newVehicle.model} onChange={(e) => setNewVehicle({...newVehicle, model: e.target.value})} />
                 <Input label="📅 Año" type="number" value={newVehicle.year} onChange={(e) => setNewVehicle({...newVehicle, year: e.target.value})} />
-                <Input label=" Patente" value={newVehicle.plate} onChange={(e) => setNewVehicle({...newVehicle, plate: e.target.value.toUpperCase()})} />
+                <Input label="🔢 Patente" value={newVehicle.plate} onChange={(e) => setNewVehicle({...newVehicle, plate: e.target.value.toUpperCase()})} />
                 <Input label="⚙️ Motor" value={newVehicle.engine} onChange={(e) => setNewVehicle({...newVehicle, engine: e.target.value})} />
                 <Input label="🔧 Chasis" value={newVehicle.chassis} onChange={(e) => setNewVehicle({...newVehicle, chassis: e.target.value})} />
               </div>
@@ -1077,7 +1099,7 @@ function PolicyForm({ policy, client, vehicles, companies, types, onClose, onSav
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose}> Cancelar</Button>
-          <Button type="submit" disabled={loading}>{loading ? '⏳ Guardando...' : '💾 Guardar'}</Button>
+          <Button type="submit" disabled={loading}>{loading ? ' Guardando...' : '💾 Guardar'}</Button>
         </div>
       </form>
     </Modal>
@@ -1104,9 +1126,9 @@ function ClientForm({ client, onClose, onSaved }: any) {
     <Modal open onClose={onClose} title={client ? '✏️ Editar cliente' : '➕ Nuevo cliente'} size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <Input label="👤 Nombre *" required value={form.first_name||''} onChange={(e) => setForm({...form, first_name: e.target.value})} />
+          <Input label=" Nombre *" required value={form.first_name||''} onChange={(e) => setForm({...form, first_name: e.target.value})} />
           <Input label="👤 Apellido *" required value={form.last_name||''} onChange={(e) => setForm({...form, last_name: e.target.value})} />
-          <Input label=" DNI" value={form.dni||''} onChange={(e) => setForm({...form, dni: e.target.value})} />
+          <Input label="🆔 DNI" value={form.dni||''} onChange={(e) => setForm({...form, dni: e.target.value})} />
           <Input label="🎂 Fecha nac." type="date" value={form.birth_date||''} onChange={(e) => setForm({...form, birth_date: e.target.value})} />
           <Input label="📞 Teléfono" value={form.phone||''} onChange={(e) => setForm({...form, phone: e.target.value})} />
           <Input label="💬 WhatsApp" value={form.whatsapp||''} onChange={(e) => setForm({...form, whatsapp: e.target.value})} />
@@ -1117,7 +1139,7 @@ function ClientForm({ client, onClose, onSaved }: any) {
         </div>
         
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">🧑‍💼 Asesor/Productor</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5">🧑💼 Asesor/Productor</label>
           <select 
             value={form.advisor || ''} 
             onChange={(e) => setForm({...form, advisor: e.target.value})}
@@ -1130,13 +1152,13 @@ function ClientForm({ client, onClose, onSaved }: any) {
         </div>
         
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1.5">📝 Observaciones</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1.5"> Observaciones</label>
           <textarea value={form.notes||''} onChange={(e) => setForm({...form, notes: e.target.value})} rows={3} className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm" />
         </div>
         {error && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">{error}</div>}
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>❌ Cancelar</Button>
-          <Button type="submit" disabled={loading}>{loading ? '⏳ Guardando...' : client ? '💾 Actualizar' : '➕ Crear cliente'}</Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}> Cancelar</Button>
+          <Button type="submit" disabled={loading}>{loading ? '⏳ Guardando...' : client ? ' Actualizar' : '➕ Crear cliente'}</Button>
         </div>
       </form>
     </Modal>
