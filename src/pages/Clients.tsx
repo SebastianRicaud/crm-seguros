@@ -689,7 +689,7 @@ function RenewPolicyModal({ policy, onClose, onRenewed }: any) {
     try {
       console.log('🔄 Iniciando renovación de póliza:', policy.id);
       
-      // 1. Crear la nueva póliza
+      // 1. Crear la nueva póliza SIN el campo renewed_from (para evitar el error de clave foránea)
       const { data: newPolicy, error: insertError } = await supabase
         .from('policies')
         .insert({
@@ -702,8 +702,7 @@ function RenewPolicyModal({ policy, onClose, onRenewed }: any) {
           payment_day: policy.payment_day,
           vehicle_id: policy.vehicle_id,
           notes: policy.notes,
-          renewed_from: policy.id,
-          previous_policy_number: policy.policy_number,
+          previous_policy_number: policy.policy_number, // Solo guardamos el número como texto
         })
         .select()
         .single();
@@ -715,7 +714,7 @@ function RenewPolicyModal({ policy, onClose, onRenewed }: any) {
       
       console.log('✅ Nueva póliza creada:', newPolicy.id);
       
-      // 2. ELIMINAR la póliza vieja
+      // 2. ELIMINAR la póliza vieja (ahora sí funciona porque no hay clave foránea)
       const { error: deleteError } = await supabase
         .from('policies')
         .delete()
@@ -731,7 +730,7 @@ function RenewPolicyModal({ policy, onClose, onRenewed }: any) {
       alert('✅ Póliza renovada correctamente.\n\nLa póliza anterior fue eliminada.');
       onRenewed();
     } catch (err: any) {
-      console.error(' Error en renovación:', err);
+      console.error('❌ Error en renovación:', err);
       alert('❌ Error: ' + err.message);
     } finally {
       setLoading(false);
@@ -767,7 +766,7 @@ function RenewPolicyModal({ policy, onClose, onRenewed }: any) {
         <div className="flex justify-end gap-2 pt-4 border-t">
           <Button type="button" variant="outline" onClick={onClose} disabled={loading}>❌ Cancelar</Button>
           <Button type="button" onClick={handleRenew} disabled={loading}>
-            {loading ? '⏳ Renovando...' : '🔄 Renovar Póliza'}
+            {loading ? '⏳ Renovando...' : ' Renovar Póliza'}
           </Button>
         </div>
       </div>
