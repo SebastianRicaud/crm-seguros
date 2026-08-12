@@ -97,7 +97,6 @@ export function Dashboard() {
     const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const daysAhead = 15; 
     
-    // ✅ Agregado 'advisor' al select de clients
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name, advisor)')
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
@@ -112,13 +111,11 @@ export function Dashboard() {
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
       
-      // Caso 1: El día de cobro es hoy o futuro en el mes actual
       if (paymentDay >= currentDay) {
         const daysUntil = paymentDay - currentDay;
         return daysUntil <= daysAhead;
       }
       
-      // Caso 2: El día de cobro ya pasó → mostrar del próximo mes
       const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
       const daysIntoNextMonth = paymentDay;
       const totalDaysUntil = daysUntilEndOfMonth + daysIntoNextMonth;
@@ -208,9 +205,20 @@ export function Dashboard() {
     setPriorityProspects(sorted);
   }
 
+  // ✅ FUNCIÓN CORREGIDA PARA CARGAR NOTAS
   async function loadMiDia() {
-    const { data } = await supabase.from('quick_notes').select('*').eq('is_done', false).order('created_at', { ascending: false }).limit(5);
-    setNotas(data || []);
+    const { data, error } = await supabase
+      .from('quick_notes')
+      .select('*')
+      .eq('is_done', false)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error cargando notas:', error);
+      setNotas([]);
+    } else {
+      setNotas(data || []);
+    }
   }
 
   async function loadCalendarNotes() {
@@ -220,21 +228,70 @@ export function Dashboard() {
     setCalendarNotes(data || []);
   }
 
+  // ✅ FUNCIÓN CORREGIDA PARA AGREGAR NOTAS
   async function addNote() {
-    if (!newNote.trim()) return;
-    await supabase.from('quick_notes').insert({ content: newNote });
-    setNewNote('');
-    loadMiDia();
+    if (!newNote.trim()) {
+      alert('⚠️ Escribí una nota primero');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('quick_notes')
+        .insert({ content: newNote.trim() });
+      
+      if (error) {
+        console.error('Error al guardar nota:', error);
+        alert('❌ Error al guardar la nota');
+        return;
+      }
+      
+      setNewNote('');
+      await loadMiDia();
+    } catch (err) {
+      console.error('Error:', err);
+      alert('❌ Error inesperado');
+    }
   }
 
+  // ✅ FUNCIÓN PARA MARCAR NOTA COMO COMPLETADA
   async function markNoteDone(id: string) {
-    await supabase.from('quick_notes').update({ is_done: true, completed_at: new Date().toISOString() }).eq('id', id);
-    loadMiDia();
+    try {
+      const { error } = await supabase
+        .from('quick_notes')
+        .update({ is_done: true, completed_at: new Date().toISOString() })
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error al completar nota:', error);
+        return;
+      }
+      
+      await loadMiDia();
+    } catch (err) {
+      console.error('Error:', err);
+    }
   }
 
+  // ✅ FUNCIÓN PARA ELIMINAR NOTA
   async function deleteNote(id: string) {
-    await supabase.from('quick_notes').delete().eq('id', id);
-    loadMiDia();
+    if (!confirm('¿Eliminar esta nota?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('quick_notes')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error al eliminar nota:', error);
+        return;
+      }
+      
+      await loadMiDia();
+    } catch (err) {
+      console.error('Error:', err);
+    }
   }
 
   // ✅ TOGGLE: Activa/desactiva cobrado (no borra de la lista)
@@ -291,7 +348,6 @@ export function Dashboard() {
 
   if (!stats) return <Loading />;
 
-  // ✅ MOSTRAR TODOS los cobros próximos (sin filtrar por estado)
   const pendingPayments = payments;
 
   function getDayNotes(date: string) {
@@ -539,11 +595,10 @@ export function Dashboard() {
                           <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
                           <p className="text-xs text-slate-600 truncate">📅 Día {p.payment_day}</p>
                           
-                          {/* ✅ BADGE DEL ASESOR */}
                           {advisorInfo && (
                             <div className="mt-1">
                               <Badge color={advisorInfo.color}>
-                                {p.clients?.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
+                                {p.clients?.advisor === 'Naty' ? '🌸' : ''} {advisorInfo.label}
                               </Badge>
                             </div>
                           )}
@@ -721,7 +776,7 @@ export function Dashboard() {
             </div>
           </Card>
 
-          {/* NOTAS RÁPIDAS */}
+          {/* ✅ NOTAS RÁPIDAS - CORREGIDO Y MEJORADO */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-yellow-50">
               <h3 className="font-bold text-slate-800">📝 Notas rápidas</h3>
@@ -765,7 +820,7 @@ export function Dashboard() {
           {/* CUMPLEAÑOS */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-pink-50 to-rose-50">
-              <h3 className="font-bold text-slate-800">🎂 Cumpleaños</h3>
+              <h3 className="font-bold text-slate-800"> Cumpleaños</h3>
             </div>
             <div className="p-4 max-h-40 overflow-y-auto">
               {birthdays.length === 0 ? (
