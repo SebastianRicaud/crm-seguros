@@ -12,8 +12,8 @@ import {
 
 // Asesores fijos con colores
 const ADVISORS: Record<string, { color: string; label: string }> = {
-  'Naty': { color: 'bg-pink-100 text-pink-700 border-pink-300', label: 'Naty' },
-  'Seba': { color: 'bg-sky-100 text-sky-700 border-sky-300', label: 'Seba' }
+  'Naty': { color: 'bg-pink-500/20 text-pink-300 border-pink-500/30', label: 'Naty' },
+  'Seba': { color: 'bg-sky-500/20 text-sky-300 border-sky-500/30', label: 'Seba' }
 };
 
 export function Dashboard() {
@@ -27,7 +27,6 @@ export function Dashboard() {
   const [policiesByCompany, setPoliciesByCompany] = useState<any[]>([]);
   const [priorityProspects, setPriorityProspects] = useState<any[]>([]);
   const [urgentAlerts, setUrgentAlerts] = useState<any[]>([]);
-  const [movementStats, setMovementStats] = useState({ altas: 0, bajas: 0 });
   
   const [notas, setNotas] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
@@ -40,8 +39,8 @@ export function Dashboard() {
   async function loadAll() {
     await Promise.all([
       loadStats(), loadRenewals(), loadBirthdays(), loadPayments(),
-      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadPriorityProspects(), 
-      loadMovementStats(), loadMiDia(), loadCalendarNotes()
+      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadPriorityProspects(),
+      loadMiDia(), loadCalendarNotes()
     ]);
   }
 
@@ -56,24 +55,6 @@ export function Dashboard() {
     setStats({
       clients: c.count || 0, prospects: p.count || 0, policies: pol.count || 0,
       pendingTasks: t.count || 0, activeClaims: cl.count || 0
-    });
-  }
-
-  async function loadMovementStats() {
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-    const { data: newClients } = await supabase.from('clients')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', startOfMonth)
-      .eq('is_archived', false);
-    
-    const { data: archivedClients } = await supabase.from('clients')
-      .select('id', { count: 'exact', head: true })
-      .gte('archived_at', startOfMonth)
-      .eq('is_archived', true);
-
-    setMovementStats({
-      altas: newClients?.length || 0,
-      bajas: archivedClients?.length || 0
     });
   }
 
@@ -115,7 +96,6 @@ export function Dashboard() {
     const filtered = (data || []).filter((p: any) => {
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
-      
       if (p.payment_collected === true) return false;
       
       if (paymentDay >= currentDay) {
@@ -126,28 +106,18 @@ export function Dashboard() {
       const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
       const daysIntoNextMonth = paymentDay;
       const totalDaysUntil = daysUntilEndOfMonth + daysIntoNextMonth;
-      
       return totalDaysUntil <= daysAhead;
     });
     
     const sorted = filtered.sort((a: any, b: any) => {
       const dayA = parseInt(a.payment_day, 10);
       const dayB = parseInt(b.payment_day, 10);
-      
       let dateA: Date;
-      if (dayA >= currentDay) {
-        dateA = new Date(currentYear, currentMonth - 1, dayA);
-      } else {
-        dateA = new Date(currentYear, currentMonth, dayA);
-      }
-      
+      if (dayA >= currentDay) dateA = new Date(currentYear, currentMonth - 1, dayA);
+      else dateA = new Date(currentYear, currentMonth, dayA);
       let dateB: Date;
-      if (dayB >= currentDay) {
-        dateB = new Date(currentYear, currentMonth - 1, dayB);
-      } else {
-        dateB = new Date(currentYear, currentMonth, dayB);
-      }
-      
+      if (dayB >= currentDay) dateB = new Date(currentYear, currentMonth - 1, dayB);
+      else dateB = new Date(currentYear, currentMonth, dayB);
       return dateA.getTime() - dateB.getTime();
     });
     
@@ -193,40 +163,20 @@ export function Dashboard() {
       let action = '';
 
       if (stateName === 'Cotizado' && daysSinceUpdate >= 3) {
-        priority = 1;
-        urgency = 'high';
-        action = '🔴 Urgente: Cotización sin respuesta';
+        priority = 1; urgency = 'high'; action = '🔴 Urgente: Cotización sin respuesta';
       } else if (stateName === 'Seguimiento' && daysSinceUpdate >= 5) {
-        priority = 2;
-        urgency = 'high';
-        action = '🔴 Urgente: Sin contacto reciente';
+        priority = 2; urgency = 'high'; action = '🔴 Urgente: Sin contacto reciente';
       } else if (stateName === 'Cotizado' && daysSinceUpdate < 3) {
-        priority = 3;
-        urgency = 'medium';
-        action = '🟡 Seguimiento: Cotización reciente';
+        priority = 3; urgency = 'medium'; action = '🟡 Seguimiento: Cotización reciente';
       } else if (stateName === 'Contactado' && daysSinceUpdate >= 2) {
-        priority = 4;
-        urgency = 'medium';
-        action = '🟡 Seguimiento: Contactar nuevamente';
+        priority = 4; urgency = 'medium'; action = '🟡 Seguimiento: Contactar nuevamente';
       } else if (stateName === 'Nuevo' && daysSinceUpdate >= 1) {
-        priority = 5;
-        urgency = 'low';
-        action = ' Nuevo: Primer contacto';
+        priority = 5; urgency = 'low'; action = '🟢 Nuevo: Primer contacto';
       } else {
-        priority = 10;
-        urgency = 'low';
-        action = '⚪ Revisar';
+        priority = 10; urgency = 'low'; action = '⚪ Revisar';
       }
 
-      return {
-        ...p,
-        daysSinceUpdate,
-        stateName,
-        stateColor: p.commercial_states?.color || '#6b7280',
-        priority,
-        urgency,
-        action
-      };
+      return { ...p, daysSinceUpdate, stateName, stateColor: p.commercial_states?.color || '#6b7280', priority, urgency, action };
     });
 
     const sorted = prospectsWithPriority.sort((a, b) => a.priority - b.priority).slice(0, 6);
@@ -234,18 +184,9 @@ export function Dashboard() {
   }
 
   async function loadMiDia() {
-    const { data, error } = await supabase
-      .from('quick_notes')
-      .select('*')
-      .eq('is_done', false)
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Error cargando notas:', error);
-      setNotas([]);
-    } else {
-      setNotas(data || []);
-    }
+    const { data, error } = await supabase.from('quick_notes').select('*').eq('is_done', false).order('created_at', { ascending: false });
+    if (error) { console.error('Error cargando notas:', error); setNotas([]); }
+    else { setNotas(data || []); }
   }
 
   async function loadCalendarNotes() {
@@ -256,73 +197,34 @@ export function Dashboard() {
   }
 
   async function addNote() {
-    if (!newNote.trim()) {
-      alert('⚠️ Escribí una nota primero');
-      return;
-    }
-    
+    if (!newNote.trim()) { alert('⚠️ Escribí una nota primero'); return; }
     try {
-      const { error } = await supabase
-        .from('quick_notes')
-        .insert({ content: newNote.trim() });
-      
-      if (error) {
-        console.error('Error al guardar nota:', error);
-        alert(' Error al guardar la nota');
-        return;
-      }
-      
+      const { error } = await supabase.from('quick_notes').insert({ content: newNote.trim() });
+      if (error) { console.error('Error al guardar nota:', error); alert('❌ Error al guardar la nota'); return; }
       setNewNote('');
       await loadMiDia();
-    } catch (err) {
-      console.error('Error:', err);
-      alert('❌ Error inesperado');
-    }
+    } catch (err) { console.error('Error:', err); alert('❌ Error inesperado'); }
   }
 
   async function markNoteDone(id: string) {
     try {
-      const { error } = await supabase
-        .from('quick_notes')
-        .update({ is_done: true, completed_at: new Date().toISOString() })
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error al completar nota:', error);
-        return;
-      }
-      
+      await supabase.from('quick_notes').update({ is_done: true, completed_at: new Date().toISOString() }).eq('id', id);
       await loadMiDia();
-    } catch (err) {
-      console.error('Error:', err);
-    }
+    } catch (err) { console.error('Error:', err); }
   }
 
   async function deleteNote(id: string) {
     if (!confirm('¿Eliminar esta nota?')) return;
-    
     try {
-      const { error } = await supabase
-        .from('quick_notes')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        console.error('Error al eliminar nota:', error);
-        return;
-      }
-      
+      await supabase.from('quick_notes').delete().eq('id', id);
       await loadMiDia();
-    } catch (err) {
-      console.error('Error:', err);
-    }
+    } catch (err) { console.error('Error:', err); }
   }
 
   async function toggleCobrado(id: string, currentState: boolean) {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-    
     await supabase.from('policies').update({ 
       payment_collected: !currentState,
       payment_collected_at: !currentState ? new Date().toISOString() : null,
@@ -336,7 +238,6 @@ export function Dashboard() {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-    
     await supabase.from('policies').update({ 
       payment_reminder_sent: !currentState,
       payment_reminder_sent_at: !currentState ? new Date().toISOString() : null,
@@ -365,18 +266,9 @@ export function Dashboard() {
 
   useEffect(() => {
     const alerts: any[] = [];
-    payments.forEach((p) => {
-      alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 });
-    });
-    renewals.filter(r => {
-      const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000);
-      return days <= 2;
-    }).forEach(r => {
-      alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 });
-    });
-    birthdays.filter(b => b.days <= 1).forEach(b => {
-      alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 });
-    });
+    payments.forEach((p) => { alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 }); });
+    renewals.filter(r => { const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000); return days <= 2; }).forEach(r => { alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 }); });
+    birthdays.filter(b => b.days <= 1).forEach(b => { alerts.push({ type: 'birthday', message: ` ${b.first_name}`, priority: 3 }); });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
   }, [payments, renewals, birthdays]);
 
@@ -388,38 +280,34 @@ export function Dashboard() {
     return calendarNotes.filter((n) => n.note_date === date);
   }
 
+  function goToClient(clientId: string) {
+    localStorage.setItem('openClientDetail', clientId);
+    navigate('/clients');
+  }
+
   const CustomBarTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-white p-3 border-2 border-slate-400 rounded-lg shadow-lg">
-          <p className="font-bold text-slate-800 text-sm">{payload[0].payload.name}</p>
-          <p className="text-blue-600 font-bold text-lg">{payload[0].value} pólizas</p>
+        <div className="bg-slate-800 p-3 border border-slate-600 rounded-lg shadow-lg">
+          <p className="font-bold text-slate-100 text-sm">{payload[0].payload.name}</p>
+          <p className="text-blue-400 font-bold text-lg">{payload[0].value} pólizas</p>
         </div>
       );
     }
     return null;
   };
 
-  // Función para navegar al cliente desde una póliza a renovar
-  function goToClient(clientId: string) {
-    // Guardamos el ID en localStorage para que la página de clientes lo abra automáticamente
-    localStorage.setItem('openClientDetail', clientId);
-    navigate('/clients');
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50 p-6 space-y-6">
+    <div className="min-h-screen bg-slate-950 p-6 space-y-6">
       
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">🏠 Home</h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Vista general de la cartera y gestión del período
-          </p>
+          <h1 className="text-3xl font-bold text-slate-100">🏠 Dashboard</h1>
+          <p className="text-sm text-slate-400 mt-1">Vista general de la cartera y gestión del período</p>
         </div>
         <div className="flex items-center gap-3">
-          <select className="px-4 py-2 border border-slate-400 rounded-lg bg-white text-sm font-medium text-slate-700">
+          <select className="px-4 py-2 border border-slate-700 rounded-lg bg-slate-800 text-sm font-medium text-slate-200">
             <option>Este mes</option>
             <option>Últimos 3 meses</option>
             <option>Último año</option>
@@ -429,7 +317,7 @@ export function Dashboard() {
 
       {/* ALERTAS */}
       {urgentAlerts.length > 0 && (
-        <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-6 py-3 rounded-xl shadow-md border border-red-600">
+        <div className="bg-gradient-to-r from-rose-600 to-red-600 text-white px-6 py-3 rounded-xl shadow-lg border border-rose-500">
           <div className="flex items-center gap-3 overflow-x-auto">
             <span className="font-bold text-sm whitespace-nowrap flex items-center gap-2">
               <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
@@ -444,512 +332,358 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* KPI CARDS */}
+      {/* KPI CARDS - Estilo Ejemplo 1 */}
       <div className="grid grid-cols-4 gap-4">
-        <KPICard 
-          label="Pólizas en cartera" 
-          value={stats.policies} 
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-blue-600">
-              <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625zM7.5 15a.75.75 0 01.75-.75h7.5a.75.75 0 010 1.5h-7.5A.75.75 0 017.5 15zm.75 2.25a.75.75 0 000 1.5H12a.75.75 0 000-1.5H8.25z" clipRule="evenodd" />
-            </svg>
-          }
-          color="bg-blue-50"
-          iconColor="text-blue-600"
-          borderColor="border-slate-400"
-          onClick={() => navigate('/policies')}
-          clickable
-        />
-        <KPICard 
-          label="Clientes activos" 
-          value={stats.clients} 
-          sublabel="con pólizas activas"
-          icon="👥"
-          color="bg-emerald-50"
-          iconColor="text-emerald-600"
-          borderColor="border-slate-400"
-          onClick={() => navigate('/clients')}
-          clickable
-        />
-        <KPICard 
-          label="Movimiento del período" 
-          value=""
-          customContent={
-            <div className="flex gap-4 mt-2">
-              <div className="flex items-center gap-1">
-                <span className="text-emerald-600">▲</span>
-                <span className="font-bold text-emerald-700">{movementStats.altas}</span>
-                <span className="text-xs text-slate-600">ALTAS</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-red-600">▼</span>
-                <span className="font-bold text-red-700">{movementStats.bajas}</span>
-                <span className="text-xs text-slate-600">BAJAS</span>
-              </div>
-            </div>
-          }
-          icon=""
-          color="bg-purple-50"
-          iconColor="text-purple-600"
-          borderColor="border-slate-400"
-          onClick={() => navigate('/clients')}
-          clickable
-        />
-        
-        {/* ✅ PÓLIZAS A RENOVAR - MODIFICADO: Muestra lista clickeable */}
+        <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-blue-500 transition-all cursor-pointer" onClick={() => navigate('/policies')}>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Pólizas en cartera</p>
+          <p className="text-3xl font-bold text-slate-100 mt-2">{stats.policies}</p>
+          <div className="mt-3 text-xs text-blue-400 font-semibold flex items-center gap-1">Ver detalles →</div>
+        </div>
+        <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-emerald-500 transition-all cursor-pointer" onClick={() => navigate('/clients')}>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Clientes activos</p>
+          <p className="text-3xl font-bold text-slate-100 mt-2">{stats.clients}</p>
+          <p className="text-xs text-slate-500 mt-1">con pólizas activas</p>
+        </div>
         <div 
-          className="bg-white rounded-xl p-5 border-2 border-slate-400 cursor-pointer hover:shadow-xl hover:border-cyan-500 transition-all"
+          className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-cyan-500 transition-all cursor-pointer"
           onClick={() => navigate('/policies')}
         >
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Pólizas a renovar</p>
-              <p className="text-3xl font-bold text-slate-900 mt-2">{renewals.length}</p>
-              <p className="text-xs text-slate-500 mt-1">próximos 30 días</p>
-              
-              {/* ✅ Lista de pólizas a renovar - clickeables */}
-              {renewals.length > 0 && (
-                <div className="mt-3 space-y-1.5" onClick={(e) => e.stopPropagation()}>
-                  {renewals.slice(0, 4).map((r: any) => (
-                    <div 
-                      key={r.id}
-                      onClick={() => goToClient(r.client_id)}
-                      className="bg-cyan-50 rounded-lg p-2 border border-cyan-200 hover:border-cyan-400 hover:bg-cyan-100 cursor-pointer transition-all"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-slate-800 truncate">
-                            {r.clients?.first_name} {r.clients?.last_name}
-                          </p>
-                          <p className="text-[10px] text-slate-500 truncate">
-                            {r.insurance_types?.name || 'Seguro'} · {r.companies?.name || '—'}
-                          </p>
-                          <p className="text-[10px] text-amber-600 font-medium mt-0.5">
-                            📅 Vence: {formatDate(r.expiration_date)}
-                          </p>
-                        </div>
-                        <div className="ml-2 text-cyan-600">
-                          <span className="text-xs">→</span>
-                        </div>
-                      </div>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Pólizas a renovar</p>
+          <p className="text-3xl font-bold text-slate-100 mt-2">{renewals.length}</p>
+          <p className="text-xs text-slate-500 mt-1">próximos 30 días</p>
+          
+          {renewals.length > 0 && (
+            <div className="mt-3 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+              {renewals.slice(0, 3).map((r: any) => (
+                <div 
+                  key={r.id}
+                  onClick={() => goToClient(r.client_id)}
+                  className="bg-slate-700/50 rounded-lg p-2 border border-slate-600 hover:border-cyan-500 hover:bg-slate-700 cursor-pointer transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-slate-200 truncate">
+                        {r.clients?.first_name} {r.clients?.last_name}
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {r.insurance_types?.name || 'Seguro'} · {r.companies?.name || '—'}
+                      </p>
+                      <p className="text-[10px] text-amber-400 font-medium mt-0.5">
+                        📅 Vence: {formatDate(r.expiration_date)}
+                      </p>
                     </div>
-                  ))}
-                  {renewals.length > 4 && (
-                    <p className="text-xs text-slate-500 text-center font-medium">
-                      + {renewals.length - 4} más...
-                    </p>
-                  )}
+                    <div className="ml-2 text-cyan-400">
+                      <span className="text-xs">→</span>
+                    </div>
+                  </div>
                 </div>
+              ))}
+              {renewals.length > 3 && (
+                <p className="text-xs text-slate-500 text-center font-medium">
+                  + {renewals.length - 3} más...
+                </p>
               )}
             </div>
-            <div className="w-12 h-12 bg-cyan-50 rounded-xl flex items-center justify-center text-2xl ml-3">
-              🔄
-            </div>
-          </div>
-          <div className="mt-3 text-xs text-blue-600 font-semibold flex items-center gap-1">
-            Ver todas →
-          </div>
+          )}
+        </div>
+        <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-amber-500 transition-all cursor-pointer" onClick={() => navigate('/prospects')}>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Gestiones pendientes</p>
+          <p className="text-3xl font-bold text-slate-100 mt-2">{stats.pendingTasks}</p>
+          <p className="text-xs text-slate-500 mt-1">tareas activas</p>
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
+      {/* CONTENIDO PRINCIPAL - 2 columnas */}
       <div className="grid grid-cols-12 gap-6">
         
-        {/* COLUMNA IZQUIERDA */}
+        {/* COLUMNA IZQUIERDA (8/12) */}
         <div className="col-span-8 space-y-6">
           
-          {/* Gráficos */}
-          <div className="grid grid-cols-2 gap-6">
-            <Card className="border-2 border-slate-400 bg-white">
-              <div className="p-4 border-b-2 border-slate-300">
-                <h3 className="font-bold text-slate-800"> Pólizas por compañía</h3>
-              </div>
-              <div className="p-4 h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
-                    <XAxis type="number" stroke="#475569" fontSize={11} />
-                    <YAxis type="category" dataKey="name" stroke="#475569" fontSize={11} width={100} />
-                    <Tooltip content={<CustomBarTooltip />} />
-                    <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#475569', fontSize: 12, fontWeight: 'bold' }} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* PROSPECTOS PRIORITARIOS */}
-            <Card className="border-2 border-slate-400 bg-white">
-              <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-orange-50 to-red-50">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800">🎯 Prospectos prioritarios</h3>
-                  <Badge color="bg-red-100 text-red-700 text-xs">
-                    {priorityProspects.filter(p => p.urgency === 'high').length} urgentes
-                  </Badge>
-                </div>
-              </div>
-              <div className="p-4 max-h-64 overflow-y-auto">
-                {priorityProspects.length === 0 ? (
-                  <div className="flex items-center justify-center h-48">
-                    <p className="text-slate-500 text-sm">Sin prospectos prioritarios</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {priorityProspects.map((p: any) => (
-                      <div 
-                        key={p.id}
-                        className={`p-3 rounded-lg border-2 cursor-pointer hover:shadow-md transition-all ${
-                          p.urgency === 'high' 
-                            ? 'bg-red-50 border-red-300' 
-                            : p.urgency === 'medium'
-                            ? 'bg-amber-50 border-amber-300'
-                            : 'bg-slate-50 border-slate-300'
-                        }`}
-                        onClick={() => navigate('/prospects')}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-slate-800 text-sm truncate">
-                              {p.first_name} {p.last_name}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <div 
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: p.stateColor }}
-                              />
-                              <span className="text-xs text-slate-600">{p.stateName}</span>
-                              <span className="text-xs text-slate-400">•</span>
-                              <span className="text-xs text-slate-500">
-                                {p.daysSinceUpdate === 0 ? 'Hoy' : `Hace ${p.daysSinceUpdate} días`}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className={`text-xs font-semibold ${
-                            p.urgency === 'high' ? 'text-red-700' : 
-                            p.urgency === 'medium' ? 'text-amber-700' : 'text-slate-600'
-                          }`}>
-                            {p.action}
-                          </p>
-                          {p.whatsapp && (
-                            <a 
-                              href={`https://wa.me/${p.whatsapp.replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 font-semibold"
-                            >
-                              💬 WhatsApp
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </Card>
+          {/* Gráfico por compañía */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 className="font-bold text-slate-100 mb-4"> Pólizas por compañía</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis type="number" stroke="#94a3b8" fontSize={11} />
+                  <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={11} width={100} />
+                  <Tooltip content={<CustomBarTooltip />} />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#e2e8f0', fontSize: 12, fontWeight: 'bold' }} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Cobros próximos */}
-          <Card className="border-2 border-slate-400 bg-white">
-            <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
-              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (7 días)</h3>
-            </div>
-            <div className="p-5 max-h-[500px] overflow-y-auto">
-              {pendingPayments.length === 0 ? (
-                <p className="text-sm text-slate-500 text-center py-6">✨ Sin cobros próximos</p>
-              ) : (
-                <div className="space-y-2">
-                  {pendingPayments.map((p: any) => {
-                    const isEnviado = p.payment_reminder_sent === true;
-                    const isCobrado = p.payment_collected === true;
-                    const ambosActivos = isEnviado && isCobrado;
-                    const advisorInfo = p.clients?.advisor ? ADVISORS[p.clients.advisor] : null;
-                    
-                    return (
-                      <div 
-                        key={p.id} 
-                        className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all ${
-                          ambosActivos 
-                            ? 'bg-emerald-50 border-emerald-400 shadow-md' 
-                            : 'bg-slate-50 border-slate-300'
-                        }`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-slate-800 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                          <p className="text-xs text-slate-600 truncate">📅 Día {p.payment_day}</p>
-                          
-                          {advisorInfo && (
-                            <div className="mt-1">
-                              <Badge color={advisorInfo.color}>
-                                {p.clients?.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
-                              </Badge>
-                            </div>
-                          )}
-                          
-                          {ambosActivos && (
-                            <p className="text-xs text-emerald-700 font-semibold mt-1">✅ Enviado y Cobrado</p>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            onClick={() => toggleEnviado(p.id, isEnviado)} 
-                            className={`text-xs px-3 py-1.5 border-2 transition-all ${
-                              isEnviado 
-                                ? 'bg-blue-600 text-white border-blue-700 hover:bg-blue-700' 
-                                : 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300'
-                            }`}
-                            title={isEnviado ? 'Quitar enviado' : 'Marcar como enviado'}
-                          >
-                            {isEnviado ? '✉️ Enviado' : ' Enviar'}
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            onClick={() => toggleCobrado(p.id, isCobrado)} 
-                            className={`text-xs px-3 py-1.5 border-2 transition-all ${
-                              isCobrado 
-                                ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700' 
-                                : 'bg-gray-200 text-gray-600 border-gray-300 hover:bg-gray-300'
-                            }`}
-                            title={isCobrado ? 'Quitar cobrado' : 'Marcar como cobrado'}
-                          >
-                            {isCobrado ? '💵 Cobrado' : '💰 Cobrar'}
-                          </Button>
-                        </div>
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 className="font-bold text-slate-100 mb-4">💰 Cobros próximos (7 días)</h3>
+            {pendingPayments.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-6">✨ Sin cobros próximos</p>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {pendingPayments.map((p: any) => {
+                  const isEnviado = p.payment_reminder_sent === true;
+                  const isCobrado = p.payment_collected === true;
+                  const ambosActivos = isEnviado && isCobrado;
+                  const advisorInfo = p.clients?.advisor ? ADVISORS[p.clients.advisor] : null;
+                  
+                  return (
+                    <div 
+                      key={p.id} 
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                        ambosActivos 
+                          ? 'bg-emerald-900/20 border-emerald-500/50' 
+                          : 'bg-slate-700/50 border-slate-600'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-100 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
+                        <p className="text-xs text-slate-400 truncate">📅 Día {p.payment_day}</p>
+                        
+                        {advisorInfo && (
+                          <div className="mt-1">
+                            <Badge color={advisorInfo.color}>
+                              {p.clients?.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
+                            </Badge>
+                          </div>
+                        )}
+                        
+                        {ambosActivos && (
+                          <p className="text-xs text-emerald-400 font-semibold mt-1">✅ Enviado y Cobrado</p>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </Card>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          onClick={() => toggleEnviado(p.id, isEnviado)} 
+                          className={`text-xs px-3 py-1.5 border transition-all ${
+                            isEnviado 
+                              ? 'bg-blue-600 text-white border-blue-500 hover:bg-blue-700' 
+                              : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
+                          }`}
+                          title={isEnviado ? 'Quitar enviado' : 'Marcar como enviado'}
+                        >
+                          {isEnviado ? '✉️ Enviado' : '📤 Enviar'}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          onClick={() => toggleCobrado(p.id, isCobrado)} 
+                          className={`text-xs px-3 py-1.5 border transition-all ${
+                            isCobrado 
+                              ? 'bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-700' 
+                              : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
+                          }`}
+                          title={isCobrado ? 'Quitar cobrado' : 'Marcar como cobrado'}
+                        >
+                          {isCobrado ? '💵 Cobrado' : '💰 Cobrar'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
-          {/* Gestiones pendientes */}
-          <div className="grid grid-cols-2 gap-6">
-            <Card className="border-2 border-slate-400 bg-white">
-              <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-blue-50 to-cyan-50">
-                <h3 className="font-bold text-slate-800">✅ Gestiones pendientes</h3>
-              </div>
-              <div className="p-5 max-h-[500px] overflow-y-auto">
-                {tasks.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-6">Sin gestiones</p>
-                ) : (
-                  <div className="space-y-2">
-                    {tasks.map((t: any) => (
-                      <div key={t.id} className="p-3 bg-slate-50 rounded-lg border-2 border-slate-300">
-                        <p className="font-semibold text-slate-800 text-sm truncate">{t.title}</p>
-                        {t.due_date && <p className="text-xs text-slate-600 mt-1">{formatDate(t.due_date)}</p>}
+          {/* Prospectos prioritarios */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-slate-100">🎯 Prospectos prioritarios</h3>
+              <Badge color="bg-rose-500/20 text-rose-300 border-rose-500/30 text-xs">
+                {priorityProspects.filter(p => p.urgency === 'high').length} urgentes
+              </Badge>
+            </div>
+            {priorityProspects.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-6">Sin prospectos prioritarios</p>
+            ) : (
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {priorityProspects.map((p: any) => (
+                  <div 
+                    key={p.id}
+                    className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-all ${
+                      p.urgency === 'high' 
+                        ? 'bg-rose-900/20 border-rose-500/50' 
+                        : p.urgency === 'medium'
+                        ? 'bg-amber-900/20 border-amber-500/50'
+                        : 'bg-slate-700/50 border-slate-600'
+                    }`}
+                    onClick={() => navigate('/prospects')}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-slate-100 text-sm truncate">{p.first_name} {p.last_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.stateColor }} />
+                          <span className="text-xs text-slate-400">{p.stateName}</span>
+                          <span className="text-xs text-slate-500">•</span>
+                          <span className="text-xs text-slate-500">{p.daysSinceUpdate === 0 ? 'Hoy' : `Hace ${p.daysSinceUpdate} días`}</span>
+                        </div>
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-xs font-semibold ${
+                        p.urgency === 'high' ? 'text-rose-300' : 
+                        p.urgency === 'medium' ? 'text-amber-300' : 'text-slate-400'
+                      }`}>{p.action}</p>
+                      {p.whatsapp && (
+                        <a 
+                          href={`https://wa.me/${p.whatsapp.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 font-semibold"
+                        >
+                          💬 WhatsApp
+                        </a>
+                      )}
+                    </div>
                   </div>
-                )}
+                ))}
               </div>
-            </Card>
+            )}
           </div>
         </div>
 
-        {/* COLUMNA DERECHA */}
+        {/* COLUMNA DERECHA (4/12) */}
         <div className="col-span-4 space-y-6">
           
-          {/* CALENDARIO */}
-          <Card className="border-2 border-slate-400 bg-white">
-            <div className="p-4 border-b-2 border-slate-300">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-slate-800 text-sm">📅 Eventos destacados</h3>
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 text-sm font-bold"
-                  >
-                    
-                  </button>
-                  <span className="text-xs font-bold text-slate-800 min-w-[100px] text-center capitalize">
-                    {selectedDate.toLocaleString('es-AR', { month: 'long', year: 'numeric' })}
-                  </span>
-                  <button 
-                    onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))}
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 text-sm font-bold"
-                  >
-                    ›
-                  </button>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-7 gap-1">
-                {['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((d) => (
-                  <div key={d} className="text-center text-[9px] font-bold text-slate-500 py-1">{d}</div>
-                ))}
+          {/* Calendario */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-slate-100 text-sm">📅 Eventos destacados</h3>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-700 text-slate-400 text-sm font-bold"
+                >‹</button>
+                <span className="text-xs font-bold text-slate-200 min-w-[100px] text-center capitalize">
+                  {selectedDate.toLocaleString('es-AR', { month: 'long', year: 'numeric' })}
+                </span>
+                <button 
+                  onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-700 text-slate-400 text-sm font-bold"
+                >›</button>
               </div>
             </div>
             
-            <div className="p-3">
-              <div className="grid grid-cols-7 gap-1">
-                {(() => {
-                  const year = selectedDate.getFullYear();
-                  const month = selectedDate.getMonth();
-                  const firstDayOfMonth = new Date(year, month, 1);
-                  const daysInMonth = new Date(year, month + 1, 0).getDate();
-                  const today = new Date();
-                  
-                  let startingDay = firstDayOfMonth.getDay();
-                  startingDay = startingDay === 0 ? 6 : startingDay - 1;
-                  
-                  const days: JSX.Element[] = [];
-                  
-                  for (let i = 0; i < startingDay; i++) {
-                    days.push(<div key={`empty-${i}`} className="aspect-square" />);
-                  }
-                  
-                  for (let day = 1; day <= daysInMonth; day++) {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const dayNotes = getDayNotes(dateStr);
-                    const isToday = day === today.getDate() && 
-                                   month === today.getMonth() && 
-                                   year === today.getFullYear();
-                    
-                    days.push(
-                      <button
-                        key={day}
-                        onClick={() => setSelectedDate(new Date(year, month, day))}
-                        className={`aspect-square rounded-lg text-xs font-semibold transition-all relative border ${
-                          isToday 
-                            ? 'bg-blue-600 text-white border-blue-700' 
-                            : 'hover:bg-slate-50 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        {day}
-                        {dayNotes.length > 0 && !isToday && (
-                          <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
-                            {dayNotes.slice(0, 2).map((n: any, idx: number) => (
-                              <div key={idx} className="w-1 h-1 rounded-full" style={{ backgroundColor: n.color }} />
-                            ))}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  }
-                  
-                  return days;
-                })()}
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((d) => (
+                <div key={d} className="text-center text-[9px] font-bold text-slate-500 py-1">{d}</div>
+              ))}
+            </div>
+            
+            <div className="grid grid-cols-7 gap-1">
+              {(() => {
+                const year = selectedDate.getFullYear();
+                const month = selectedDate.getMonth();
+                const firstDayOfMonth = new Date(year, month, 1);
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const today = new Date();
+                let startingDay = firstDayOfMonth.getDay();
+                startingDay = startingDay === 0 ? 6 : startingDay - 1;
+                const days: JSX.Element[] = [];
+                for (let i = 0; i < startingDay; i++) {
+                  days.push(<div key={`empty-${i}`} className="aspect-square" />);
+                }
+                for (let day = 1; day <= daysInMonth; day++) {
+                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const dayNotes = getDayNotes(dateStr);
+                  const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+                  days.push(
+                    <button
+                      key={day}
+                      onClick={() => setSelectedDate(new Date(year, month, day))}
+                      className={`aspect-square rounded-lg text-xs font-semibold transition-all relative border ${
+                        isToday 
+                          ? 'bg-blue-600 text-white border-blue-500' 
+                          : 'hover:bg-slate-700 text-slate-300 border-slate-700'
+                      }`}
+                    >
+                      {day}
+                      {dayNotes.length > 0 && !isToday && (
+                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5">
+                          {dayNotes.slice(0, 2).map((n: any, idx: number) => (
+                            <div key={idx} className="w-1 h-1 rounded-full" style={{ backgroundColor: n.color }} />
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  );
+                }
+                return days;
+              })()}
+            </div>
+            
+            <div className="mt-3 space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Evento..."
+                  value={newCalendarNote.title}
+                  onChange={(e) => setNewCalendarNote({...newCalendarNote, title: e.target.value})}
+                  className="flex-1 px-2 py-1.5 border border-slate-600 bg-slate-700 rounded text-xs text-slate-200"
+                />
+                <Button size="sm" onClick={addCalendarNote} className="text-xs px-2 py-1.5 bg-blue-600 text-white hover:bg-blue-700">+</Button>
               </div>
-              
-              <div className="mt-3 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Evento..."
-                    value={newCalendarNote.title}
-                    onChange={(e) => setNewCalendarNote({...newCalendarNote, title: e.target.value})}
-                    className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-xs"
-                  />
-                  <Button size="sm" onClick={addCalendarNote} className="text-xs px-2 py-1.5 bg-blue-600 text-white hover:bg-blue-700">
-                    +
-                  </Button>
+              {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
+                <div key={n.id} className="p-2 rounded border border-slate-600 bg-slate-700/50 text-xs relative">
+                  <p className="font-medium text-slate-200">{n.title}</p>
+                  <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-0.5 right-1 text-rose-400 text-xs">×</button>
                 </div>
-                {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
-                  <div key={n.id} className="p-2 rounded border border-slate-200 bg-slate-50 text-xs relative">
-                    <p className="font-medium text-slate-800">{n.title}</p>
-                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-0.5 right-1 text-red-500 text-xs">×</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Notas rápidas */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 className="font-bold text-slate-100 mb-3">📝 Notas rápidas</h3>
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                placeholder="Nueva nota..."
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                className="flex-1 px-3 py-2 border border-slate-600 bg-slate-700 rounded-lg text-xs font-medium text-slate-200"
+              />
+              <Button size="sm" onClick={addNote} className="text-xs px-3 py-2 bg-slate-600 text-white hover:bg-slate-500">+</Button>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {notas.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">Sin notas</p>
+              ) : (
+                notas.map((n: any) => (
+                  <div key={n.id} className="p-3 bg-amber-900/20 rounded-lg border border-amber-500/30 text-xs">
+                    <p className="font-semibold text-amber-200 mb-2">{n.content}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => markNoteDone(n.id)} className="text-[10px] px-2 py-1 border border-slate-600 text-slate-300">✓ Hecho</Button>
+                      <button onClick={() => deleteNote(n.id)} className="text-rose-400 hover:text-rose-300 text-[10px] font-semibold">Eliminar</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Cumpleaños */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 className="font-bold text-slate-100 mb-3">🎂 Cumpleaños</h3>
+            {birthdays.length === 0 ? (
+              <p className="text-xs text-slate-500 text-center py-4">Sin cumpleaños próximos</p>
+            ) : (
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {birthdays.map((c: any) => (
+                  <div key={c.id} className="p-3 bg-slate-700/50 rounded-lg border border-slate-600 text-xs">
+                    <p className="font-semibold text-slate-200">{c.first_name} {c.last_name}</p>
+                    <p className="text-pink-400 font-semibold">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
                   </div>
                 ))}
               </div>
-            </div>
-          </Card>
-
-          {/* NOTAS RÁPIDAS */}
-          <Card className="border-2 border-slate-400 bg-white">
-            <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-yellow-50">
-              <h3 className="font-bold text-slate-800"> Notas rápidas</h3>
-            </div>
-            <div className="p-4">
-              <div className="flex gap-2 mb-3">
-                <input
-                  type="text"
-                  placeholder="Nueva nota..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addNote()}
-                  className="flex-1 px-3 py-2 border-2 border-slate-400 rounded-lg text-xs font-medium"
-                />
-                <Button size="sm" onClick={addNote} className="text-xs px-3 py-2 border-2 border-slate-400 bg-slate-800 text-white hover:bg-slate-900">
-                  +
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {notas.length === 0 ? (
-                  <p className="text-xs text-slate-500 text-center py-4">Sin notas</p>
-                ) : (
-                  notas.map((n: any) => (
-                    <div key={n.id} className="p-3 bg-amber-50 rounded-lg border-2 border-amber-300 text-xs">
-                      <p className="font-semibold text-slate-800 mb-2">{n.content}</p>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => markNoteDone(n.id)} className="text-[10px] px-2 py-1 border-2 border-slate-400">
-                          ✓ Hecho
-                        </Button>
-                        <button onClick={() => deleteNote(n.id)} className="text-red-600 hover:text-red-700 text-[10px] font-semibold">
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </Card>
-
-          {/* CUMPLEAÑOS */}
-          <Card className="border-2 border-slate-400 bg-white">
-            <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-pink-50 to-rose-50">
-              <h3 className="font-bold text-slate-800">🎂 Cumpleaños</h3>
-            </div>
-            <div className="p-4 max-h-40 overflow-y-auto">
-              {birthdays.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">Sin cumpleaños próximos</p>
-              ) : (
-                <div className="space-y-2">
-                  {birthdays.map((c: any) => (
-                    <div key={c.id} className="p-3 bg-slate-50 rounded-lg border-2 border-slate-300 text-xs">
-                      <p className="font-semibold text-slate-800">{c.first_name} {c.last_name}</p>
-                      <p className="text-pink-700 font-semibold">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </Card>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function KPICard({ label, value, sublabel, customContent, icon, color, iconColor, borderColor, onClick, clickable }: any) {
-  return (
-    <div 
-      onClick={clickable ? onClick : undefined}
-      className={`bg-white rounded-xl p-5 border-2 ${borderColor} ${clickable ? 'cursor-pointer hover:shadow-xl hover:border-blue-500' : ''} transition-all`}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{label}</p>
-          {customContent ? (
-            customContent
-          ) : (
-            <p className="text-3xl font-bold text-slate-900 mt-2">{value}</p>
-          )}
-          {sublabel && <p className="text-xs text-slate-500 mt-1">{sublabel}</p>}
-        </div>
-        <div className={`w-12 h-12 ${color} rounded-xl flex items-center justify-center text-2xl ml-3`}>
-          {icon}
-        </div>
-      </div>
-      {clickable && (
-        <div className="mt-3 text-xs text-blue-600 font-semibold flex items-center gap-1">
-          Ver detalles →
-        </div>
-      )}
     </div>
   );
 }
