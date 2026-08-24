@@ -91,20 +91,22 @@ export function Dashboard() {
     setBirthdays(upcoming);
   }
 
-  // ✅ FUNCIÓN CORREGIDA: Ordena por proximidad real a la fecha de hoy
+  // ✅ FUNCIÓN CORREGIDA: Filtra por mes/año actual y ordena por proximidad (7 días)
   async function loadPayments() {
     const today = new Date();
     const currentDay = today.getDate();
-    const currentMonth = today.getMonth();
+    const currentMonth = today.getMonth() + 1; // 1-12
     const currentYear = today.getFullYear();
-    const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const daysAhead = 15; 
+    const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
+    const daysAhead = 7; // ✅ Cambiado a 7 días
     
-    // Quitamos el .order('payment_day') de Supabase porque lo vamos a ordenar correctamente en JS
+    // Traer solo los cobros del mes actual
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name, advisor)')
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
-      .not('payment_day', 'is', null);
+      .not('payment_day', 'is', null)
+      .eq('payment_year', currentYear)
+      .eq('payment_month', String(currentMonth).padStart(2, '0'));
 
     if (error) {
       console.error("Error cargando cobros:", error);
@@ -115,6 +117,9 @@ export function Dashboard() {
     const filtered = (data || []).filter((p: any) => {
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
+      
+      // Solo mostrar si NO está cobrado
+      if (p.payment_collected === true) return false;
       
       // Caso 1: El día de cobro es hoy o futuro en el mes actual
       if (paymentDay >= currentDay) {
@@ -130,28 +135,25 @@ export function Dashboard() {
       return totalDaysUntil <= daysAhead;
     });
     
-    // ✅ ORDENAR POR PROXIMIDAD REAL (no por número de día)
+    // Ordenar por proximidad
     const sorted = filtered.sort((a: any, b: any) => {
       const dayA = parseInt(a.payment_day, 10);
       const dayB = parseInt(b.payment_day, 10);
       
-      // Calcular la fecha real del próximo cobro para A
       let dateA: Date;
       if (dayA >= currentDay) {
-        dateA = new Date(currentYear, currentMonth, dayA); // Este mes
+        dateA = new Date(currentYear, currentMonth - 1, dayA);
       } else {
-        dateA = new Date(currentYear, currentMonth + 1, dayA); // Próximo mes
+        dateA = new Date(currentYear, currentMonth, dayA);
       }
       
-      // Calcular la fecha real del próximo cobro para B
       let dateB: Date;
       if (dayB >= currentDay) {
-        dateB = new Date(currentYear, currentMonth, dayB); // Este mes
+        dateB = new Date(currentYear, currentMonth - 1, dayB);
       } else {
-        dateB = new Date(currentYear, currentMonth + 1, dayB); // Próximo mes
+        dateB = new Date(currentYear, currentMonth, dayB);
       }
       
-      // Ordenar por fecha (el más cercano primero)
       return dateA.getTime() - dateB.getTime();
     });
     
@@ -322,18 +324,32 @@ export function Dashboard() {
     }
   }
 
+  // ✅ FUNCIÓN CORREGIDA: Actualiza mes/año al marcar cobrado
   async function toggleCobrado(id: string, currentState: boolean) {
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+    
     await supabase.from('policies').update({ 
       payment_collected: !currentState,
-      payment_collected_at: !currentState ? new Date().toISOString() : null
+      payment_collected_at: !currentState ? new Date().toISOString() : null,
+      payment_month: String(currentMonth).padStart(2, '0'),
+      payment_year: currentYear
     }).eq('id', id);
     loadPayments();
   }
 
+  // ✅ FUNCIÓN CORREGIDA: Actualiza mes/año al marcar enviado
   async function toggleEnviado(id: string, currentState: boolean) {
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+    
     await supabase.from('policies').update({ 
       payment_reminder_sent: !currentState,
-      payment_reminder_sent_at: !currentState ? new Date().toISOString() : null
+      payment_reminder_sent_at: !currentState ? new Date().toISOString() : null,
+      payment_month: String(currentMonth).padStart(2, '0'),
+      payment_year: currentYear
     }).eq('id', id);
     loadPayments();
   }
@@ -503,7 +519,7 @@ export function Dashboard() {
           <div className="grid grid-cols-2 gap-6">
             <Card className="border-2 border-slate-400 bg-white">
               <div className="p-4 border-b-2 border-slate-300">
-                <h3 className="font-bold text-slate-800">🏢 Pólizas por compañía</h3>
+                <h3 className="font-bold text-slate-800"> Pólizas por compañía</h3>
               </div>
               <div className="p-4 h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -595,7 +611,7 @@ export function Dashboard() {
           {/* Cobros próximos - Tarjeta grande con botones toggle independientes y ASESOR */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
-              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (15 días)</h3>
+              <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (7 días)</h3>
             </div>
             <div className="p-5 max-h-[500px] overflow-y-auto">
               {pendingPayments.length === 0 ? (
@@ -644,7 +660,7 @@ export function Dashboard() {
                             }`}
                             title={isEnviado ? 'Quitar enviado' : 'Marcar como enviado'}
                           >
-                            {isEnviado ? '✉️ Enviado' : '📤 Enviar'}
+                            {isEnviado ? '️ Enviado' : '📤 Enviar'}
                           </Button>
                           <Button 
                             size="sm" 
@@ -656,7 +672,7 @@ export function Dashboard() {
                             }`}
                             title={isCobrado ? 'Quitar cobrado' : 'Marcar como cobrado'}
                           >
-                            {isCobrado ? '💵 Cobrado' : '💰 Cobrar'}
+                            {isCobrado ? ' Cobrado' : '💰 Cobrar'}
                           </Button>
                         </div>
                       </div>
