@@ -91,31 +91,38 @@ export function Dashboard() {
     setBirthdays(upcoming);
   }
 
+  // ✅ FUNCIÓN CORREGIDA: Ordena por proximidad real a la fecha de hoy
   async function loadPayments() {
     const today = new Date();
     const currentDay = today.getDate();
-    const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const daysAhead = 15; 
     
+    // Quitamos el .order('payment_day') de Supabase porque lo vamos a ordenar correctamente en JS
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name, advisor)')
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
-      .not('payment_day', 'is', null)
-      .order('payment_day');
+      .not('payment_day', 'is', null);
 
     if (error) {
       console.error("Error cargando cobros:", error);
+      setPayments([]);
+      return;
     }
 
     const filtered = (data || []).filter((p: any) => {
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
       
+      // Caso 1: El día de cobro es hoy o futuro en el mes actual
       if (paymentDay >= currentDay) {
         const daysUntil = paymentDay - currentDay;
         return daysUntil <= daysAhead;
       }
       
+      // Caso 2: El día de cobro ya pasó → mostrar del próximo mes
       const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
       const daysIntoNextMonth = paymentDay;
       const totalDaysUntil = daysUntilEndOfMonth + daysIntoNextMonth;
@@ -123,7 +130,32 @@ export function Dashboard() {
       return totalDaysUntil <= daysAhead;
     });
     
-    setPayments(filtered);
+    // ✅ ORDENAR POR PROXIMIDAD REAL (no por número de día)
+    const sorted = filtered.sort((a: any, b: any) => {
+      const dayA = parseInt(a.payment_day, 10);
+      const dayB = parseInt(b.payment_day, 10);
+      
+      // Calcular la fecha real del próximo cobro para A
+      let dateA: Date;
+      if (dayA >= currentDay) {
+        dateA = new Date(currentYear, currentMonth, dayA); // Este mes
+      } else {
+        dateA = new Date(currentYear, currentMonth + 1, dayA); // Próximo mes
+      }
+      
+      // Calcular la fecha real del próximo cobro para B
+      let dateB: Date;
+      if (dayB >= currentDay) {
+        dateB = new Date(currentYear, currentMonth, dayB); // Este mes
+      } else {
+        dateB = new Date(currentYear, currentMonth + 1, dayB); // Próximo mes
+      }
+      
+      // Ordenar por fecha (el más cercano primero)
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+    setPayments(sorted);
   }
 
   async function loadTasks() {
@@ -205,7 +237,6 @@ export function Dashboard() {
     setPriorityProspects(sorted);
   }
 
-  // ✅ FUNCIÓN CORREGIDA PARA CARGAR NOTAS
   async function loadMiDia() {
     const { data, error } = await supabase
       .from('quick_notes')
@@ -228,7 +259,6 @@ export function Dashboard() {
     setCalendarNotes(data || []);
   }
 
-  // ✅ FUNCIÓN CORREGIDA PARA AGREGAR NOTAS
   async function addNote() {
     if (!newNote.trim()) {
       alert('⚠️ Escribí una nota primero');
@@ -254,7 +284,6 @@ export function Dashboard() {
     }
   }
 
-  // ✅ FUNCIÓN PARA MARCAR NOTA COMO COMPLETADA
   async function markNoteDone(id: string) {
     try {
       const { error } = await supabase
@@ -273,7 +302,6 @@ export function Dashboard() {
     }
   }
 
-  // ✅ FUNCIÓN PARA ELIMINAR NOTA
   async function deleteNote(id: string) {
     if (!confirm('¿Eliminar esta nota?')) return;
     
@@ -294,7 +322,6 @@ export function Dashboard() {
     }
   }
 
-  // ✅ TOGGLE: Activa/desactiva cobrado (no borra de la lista)
   async function toggleCobrado(id: string, currentState: boolean) {
     await supabase.from('policies').update({ 
       payment_collected: !currentState,
@@ -303,7 +330,6 @@ export function Dashboard() {
     loadPayments();
   }
 
-  // ✅ TOGGLE: Activa/desactiva enviado (no borra de la lista)
   async function toggleEnviado(id: string, currentState: boolean) {
     await supabase.from('policies').update({ 
       payment_reminder_sent: !currentState,
@@ -598,7 +624,7 @@ export function Dashboard() {
                           {advisorInfo && (
                             <div className="mt-1">
                               <Badge color={advisorInfo.color}>
-                                {p.clients?.advisor === 'Naty' ? '🌸' : ''} {advisorInfo.label}
+                                {p.clients?.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
                               </Badge>
                             </div>
                           )}
@@ -820,7 +846,7 @@ export function Dashboard() {
           {/* CUMPLEAÑOS */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-pink-50 to-rose-50">
-              <h3 className="font-bold text-slate-800"> Cumpleaños</h3>
+              <h3 className="font-bold text-slate-800">🎂 Cumpleaños</h3>
             </div>
             <div className="p-4 max-h-40 overflow-y-auto">
               {birthdays.length === 0 ? (
