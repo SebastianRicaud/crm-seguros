@@ -80,7 +80,7 @@ export function Dashboard() {
   async function loadRenewals() {
     const today = new Date().toISOString().split('T')[0];
     const in30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name)')
+    const { data } = await supabase.from('policies').select('*, clients(first_name, last_name), companies(name), insurance_types(id, name)')
       .eq('is_archived', false).gte('expiration_date', today).lte('expiration_date', in30).order('expiration_date');
     setRenewals(data || []);
   }
@@ -91,16 +91,14 @@ export function Dashboard() {
     setBirthdays(upcoming);
   }
 
-  // ✅ FUNCIÓN CORREGIDA: Filtra por mes/año actual y ordena por proximidad (7 días)
   async function loadPayments() {
     const today = new Date();
     const currentDay = today.getDate();
-    const currentMonth = today.getMonth() + 1; // 1-12
+    const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
     const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
-    const daysAhead = 7; // ✅ Cambiado a 7 días
+    const daysAhead = 7;
     
-    // Traer solo los cobros del mes actual
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name, advisor)')
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
@@ -118,16 +116,13 @@ export function Dashboard() {
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
       
-      // Solo mostrar si NO está cobrado
       if (p.payment_collected === true) return false;
       
-      // Caso 1: El día de cobro es hoy o futuro en el mes actual
       if (paymentDay >= currentDay) {
         const daysUntil = paymentDay - currentDay;
         return daysUntil <= daysAhead;
       }
       
-      // Caso 2: El día de cobro ya pasó → mostrar del próximo mes
       const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
       const daysIntoNextMonth = paymentDay;
       const totalDaysUntil = daysUntilEndOfMonth + daysIntoNextMonth;
@@ -135,7 +130,6 @@ export function Dashboard() {
       return totalDaysUntil <= daysAhead;
     });
     
-    // Ordenar por proximidad
     const sorted = filtered.sort((a: any, b: any) => {
       const dayA = parseInt(a.payment_day, 10);
       const dayB = parseInt(b.payment_day, 10);
@@ -217,7 +211,7 @@ export function Dashboard() {
       } else if (stateName === 'Nuevo' && daysSinceUpdate >= 1) {
         priority = 5;
         urgency = 'low';
-        action = '🟢 Nuevo: Primer contacto';
+        action = ' Nuevo: Primer contacto';
       } else {
         priority = 10;
         urgency = 'low';
@@ -274,7 +268,7 @@ export function Dashboard() {
       
       if (error) {
         console.error('Error al guardar nota:', error);
-        alert('❌ Error al guardar la nota');
+        alert(' Error al guardar la nota');
         return;
       }
       
@@ -324,7 +318,6 @@ export function Dashboard() {
     }
   }
 
-  // ✅ FUNCIÓN CORREGIDA: Actualiza mes/año al marcar cobrado
   async function toggleCobrado(id: string, currentState: boolean) {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
@@ -339,7 +332,6 @@ export function Dashboard() {
     loadPayments();
   }
 
-  // ✅ FUNCIÓN CORREGIDA: Actualiza mes/año al marcar enviado
   async function toggleEnviado(id: string, currentState: boolean) {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
@@ -407,6 +399,13 @@ export function Dashboard() {
     }
     return null;
   };
+
+  // Función para navegar al cliente desde una póliza a renovar
+  function goToClient(clientId: string) {
+    // Guardamos el ID en localStorage para que la página de clientes lo abra automáticamente
+    localStorage.setItem('openClientDetail', clientId);
+    navigate('/clients');
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 space-y-6">
@@ -496,17 +495,61 @@ export function Dashboard() {
           onClick={() => navigate('/clients')}
           clickable
         />
-        <KPICard 
-          label="Pólizas a renovar" 
-          value={renewals.length} 
-          sublabel="próximos 30 días"
-          icon="🔄"
-          color="bg-cyan-50"
-          iconColor="text-cyan-600"
-          borderColor="border-slate-400"
+        
+        {/* ✅ PÓLIZAS A RENOVAR - MODIFICADO: Muestra lista clickeable */}
+        <div 
+          className="bg-white rounded-xl p-5 border-2 border-slate-400 cursor-pointer hover:shadow-xl hover:border-cyan-500 transition-all"
           onClick={() => navigate('/policies')}
-          clickable
-        />
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Pólizas a renovar</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">{renewals.length}</p>
+              <p className="text-xs text-slate-500 mt-1">próximos 30 días</p>
+              
+              {/* ✅ Lista de pólizas a renovar - clickeables */}
+              {renewals.length > 0 && (
+                <div className="mt-3 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                  {renewals.slice(0, 4).map((r: any) => (
+                    <div 
+                      key={r.id}
+                      onClick={() => goToClient(r.client_id)}
+                      className="bg-cyan-50 rounded-lg p-2 border border-cyan-200 hover:border-cyan-400 hover:bg-cyan-100 cursor-pointer transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-800 truncate">
+                            {r.clients?.first_name} {r.clients?.last_name}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">
+                            {r.insurance_types?.name || 'Seguro'} · {r.companies?.name || '—'}
+                          </p>
+                          <p className="text-[10px] text-amber-600 font-medium mt-0.5">
+                            📅 Vence: {formatDate(r.expiration_date)}
+                          </p>
+                        </div>
+                        <div className="ml-2 text-cyan-600">
+                          <span className="text-xs">→</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {renewals.length > 4 && (
+                    <p className="text-xs text-slate-500 text-center font-medium">
+                      + {renewals.length - 4} más...
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="w-12 h-12 bg-cyan-50 rounded-xl flex items-center justify-center text-2xl ml-3">
+              🔄
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-blue-600 font-semibold flex items-center gap-1">
+            Ver todas →
+          </div>
+        </div>
       </div>
 
       {/* CONTENIDO PRINCIPAL */}
@@ -608,7 +651,7 @@ export function Dashboard() {
             </Card>
           </div>
 
-          {/* Cobros próximos - Tarjeta grande con botones toggle independientes y ASESOR */}
+          {/* Cobros próximos */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-orange-50">
               <h3 className="font-bold text-slate-800 text-lg">💰 Cobros próximos (7 días)</h3>
@@ -660,7 +703,7 @@ export function Dashboard() {
                             }`}
                             title={isEnviado ? 'Quitar enviado' : 'Marcar como enviado'}
                           >
-                            {isEnviado ? '️ Enviado' : '📤 Enviar'}
+                            {isEnviado ? '✉️ Enviado' : ' Enviar'}
                           </Button>
                           <Button 
                             size="sm" 
@@ -672,7 +715,7 @@ export function Dashboard() {
                             }`}
                             title={isCobrado ? 'Quitar cobrado' : 'Marcar como cobrado'}
                           >
-                            {isCobrado ? ' Cobrado' : '💰 Cobrar'}
+                            {isCobrado ? '💵 Cobrado' : '💰 Cobrar'}
                           </Button>
                         </div>
                       </div>
@@ -710,7 +753,7 @@ export function Dashboard() {
         {/* COLUMNA DERECHA */}
         <div className="col-span-4 space-y-6">
           
-          {/* CALENDARIO REAL */}
+          {/* CALENDARIO */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300">
               <div className="flex items-center justify-between mb-3">
@@ -720,7 +763,7 @@ export function Dashboard() {
                     onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1))}
                     className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-100 text-slate-600 text-sm font-bold"
                   >
-                    ‹
+                    
                   </button>
                   <span className="text-xs font-bold text-slate-800 min-w-[100px] text-center capitalize">
                     {selectedDate.toLocaleString('es-AR', { month: 'long', year: 'numeric' })}
@@ -734,7 +777,6 @@ export function Dashboard() {
                 </div>
               </div>
               
-              {/* Días de la semana */}
               <div className="grid grid-cols-7 gap-1">
                 {['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map((d) => (
                   <div key={d} className="text-center text-[9px] font-bold text-slate-500 py-1">{d}</div>
@@ -743,7 +785,6 @@ export function Dashboard() {
             </div>
             
             <div className="p-3">
-              {/* Días del mes */}
               <div className="grid grid-cols-7 gap-1">
                 {(() => {
                   const year = selectedDate.getFullYear();
@@ -794,7 +835,6 @@ export function Dashboard() {
                 })()}
               </div>
               
-              {/* Notas del día seleccionado */}
               <div className="mt-3 space-y-2">
                 <div className="flex gap-2">
                   <input
@@ -818,10 +858,10 @@ export function Dashboard() {
             </div>
           </Card>
 
-          {/* ✅ NOTAS RÁPIDAS - CORREGIDO Y MEJORADO */}
+          {/* NOTAS RÁPIDAS */}
           <Card className="border-2 border-slate-400 bg-white">
             <div className="p-4 border-b-2 border-slate-300 bg-gradient-to-r from-amber-50 to-yellow-50">
-              <h3 className="font-bold text-slate-800">📝 Notas rápidas</h3>
+              <h3 className="font-bold text-slate-800"> Notas rápidas</h3>
             </div>
             <div className="p-4">
               <div className="flex gap-2 mb-3">
