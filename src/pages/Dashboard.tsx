@@ -22,7 +22,6 @@ export function Dashboard() {
   const [renewals, setRenewals] = useState<any[]>([]);
   const [birthdays, setBirthdays] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
   const [claims, setClaims] = useState<any[]>([]);
   const [policiesByCompany, setPoliciesByCompany] = useState<any[]>([]);
   const [priorityProspects, setPriorityProspects] = useState<any[]>([]);
@@ -39,22 +38,21 @@ export function Dashboard() {
   async function loadAll() {
     await Promise.all([
       loadStats(), loadRenewals(), loadBirthdays(), loadPayments(),
-      loadTasks(), loadClaims(), loadPoliciesByCompany(), loadPriorityProspects(),
+      loadClaims(), loadPoliciesByCompany(), loadPriorityProspects(),
       loadMiDia(), loadCalendarNotes()
     ]);
   }
 
   async function loadStats() {
-    const [c, p, pol, t, cl] = await Promise.all([
+    const [c, p, pol, cl] = await Promise.all([
       supabase.from('clients').select('id', { count: 'exact', head: true }).eq('is_archived', false),
       supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('is_archived', false),
       supabase.from('policies').select('id', { count: 'exact', head: true }).eq('is_archived', false),
-      supabase.from('tasks').select('id', { count: 'exact', head: true }).neq('status', 'Finalizada'),
       supabase.from('claims').select('id', { count: 'exact', head: true }).neq('status', 'Cerrado'),
     ]);
     setStats({
       clients: c.count || 0, prospects: p.count || 0, policies: pol.count || 0,
-      pendingTasks: t.count || 0, activeClaims: cl.count || 0
+      activeClaims: cl.count || 0
     });
   }
 
@@ -124,14 +122,29 @@ export function Dashboard() {
     setPayments(sorted);
   }
 
-  async function loadTasks() {
-    const { data } = await supabase.from('tasks').select('*').neq('status', 'Finalizada').order('due_date').limit(5);
-    setTasks(data || []);
-  }
-
+  // ✅ Cargar siniestros abiertos con última nota
   async function loadClaims() {
-    const { data } = await supabase.from('claims').select('*, clients(first_name, last_name)').neq('status', 'Cerrado').order('created_at', { ascending: false }).limit(5);
-    setClaims(data || []);
+    const { data } = await supabase.from('claims')
+      .select('*, clients(first_name, last_name), policies(policy_number), claim_notes(content, created_at)')
+      .neq('status', 'Cerrado')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    // Procesar para obtener la última nota de cada siniestro
+    const claimsWithLastNote = (data || []).map((claim: any) => {
+      const notes = claim.claim_notes || [];
+      const lastNote = notes.length > 0 
+        ? notes.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
+        : null;
+      
+      return {
+        ...claim,
+        lastNote: lastNote?.content || null,
+        lastNoteDate: lastNote?.created_at || claim.created_at
+      };
+    });
+    
+    setClaims(claimsWithLastNote);
   }
 
   async function loadPoliciesByCompany() {
@@ -268,7 +281,7 @@ export function Dashboard() {
     const alerts: any[] = [];
     payments.forEach((p) => { alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 }); });
     renewals.filter(r => { const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000); return days <= 2; }).forEach(r => { alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 }); });
-    birthdays.filter(b => b.days <= 1).forEach(b => { alerts.push({ type: 'birthday', message: ` ${b.first_name}`, priority: 3 }); });
+    birthdays.filter(b => b.days <= 1).forEach(b => { alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 }); });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
   }, [payments, renewals, birthdays]);
 
@@ -303,7 +316,7 @@ export function Dashboard() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-100">🏠 Dashboard</h1>
+          <h1 className="text-3xl font-bold text-slate-100"> Dashboard</h1>
           <p className="text-sm text-slate-400 mt-1">Vista general de la cartera y gestión del período</p>
         </div>
         <div className="flex items-center gap-3">
@@ -332,7 +345,7 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* KPI CARDS - Estilo Ejemplo 1 */}
+      {/* KPI CARDS */}
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-blue-500 transition-all cursor-pointer" onClick={() => navigate('/policies')}>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Pólizas en cartera</p>
@@ -386,35 +399,61 @@ export function Dashboard() {
             </div>
           )}
         </div>
-        <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-amber-500 transition-all cursor-pointer" onClick={() => navigate('/prospects')}>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Gestiones pendientes</p>
-          <p className="text-3xl font-bold text-slate-100 mt-2">{stats.pendingTasks}</p>
-          <p className="text-xs text-slate-500 mt-1">tareas activas</p>
+        
+        {/* ✅ SINIESTROS ABIERTOS */}
+        <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-rose-500 transition-all cursor-pointer" onClick={() => navigate('/claims')}>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Siniestros abiertos</p>
+          <p className="text-3xl font-bold text-slate-100 mt-2">{stats.activeClaims}</p>
+          <p className="text-xs text-slate-500 mt-1">en seguimiento</p>
+          
+          {claims.length > 0 && (
+            <div className="mt-3 space-y-1.5" onClick={(e) => e.stopPropagation()}>
+              {claims.slice(0, 3).map((claim: any) => (
+                <div 
+                  key={claim.id}
+                  onClick={() => goToClient(claim.client_id)}
+                  className="bg-slate-700/50 rounded-lg p-2 border border-slate-600 hover:border-rose-500 hover:bg-slate-700 cursor-pointer transition-all"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-slate-200 truncate">
+                      {claim.clients?.first_name} {claim.clients?.last_name}
+                    </p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Badge color={
+                        claim.status === 'Abierto' ? 'bg-rose-500/20 text-rose-300 border-rose-500/30' :
+                        claim.status === 'En Proceso' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                        'bg-slate-500/20 text-slate-300 border-slate-500/30'
+                      }>
+                        {claim.status}
+                      </Badge>
+                    </div>
+                    {claim.lastNote && (
+                      <p className="text-[10px] text-slate-400 truncate mt-1">
+                        📝 {claim.lastNote}
+                      </p>
+                    )}
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      🕐 {formatDate(claim.lastNoteDate)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {claims.length > 3 && (
+                <p className="text-xs text-slate-500 text-center font-medium">
+                  + {claims.length - 3} más...
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL - 2 columnas */}
+      {/* CONTENIDO PRINCIPAL */}
       <div className="grid grid-cols-12 gap-6">
         
         {/* COLUMNA IZQUIERDA (8/12) */}
         <div className="col-span-8 space-y-6">
           
-          {/* Gráfico por compañía */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-            <h3 className="font-bold text-slate-100 mb-4"> Pólizas por compañía</h3>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 40 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                  <XAxis type="number" stroke="#94a3b8" fontSize={11} />
-                  <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={11} width={100} />
-                  <Tooltip content={<CustomBarTooltip />} />
-                  <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#e2e8f0', fontSize: 12, fontWeight: 'bold' }} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
           {/* Cobros próximos */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
             <h3 className="font-bold text-slate-100 mb-4">💰 Cobros próximos (7 días)</h3>
@@ -439,7 +478,7 @@ export function Dashboard() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-100 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                        <p className="text-xs text-slate-400 truncate">📅 Día {p.payment_day}</p>
+                        <p className="text-xs text-slate-400 truncate"> Día {p.payment_day}</p>
                         
                         {advisorInfo && (
                           <div className="mt-1">
@@ -543,6 +582,22 @@ export function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* ✅ GRÁFICO POR COMPAÑÍA - MOVIDO AL FINAL */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 className="font-bold text-slate-100 mb-4">📊 Pólizas por compañía</h3>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis type="number" stroke="#94a3b8" fontSize={11} />
+                  <YAxis type="category" dataKey="name" stroke="#94a3b8" fontSize={11} width={100} />
+                  <Tooltip content={<CustomBarTooltip />} />
+                  <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} label={{ position: 'right', fill: '#e2e8f0', fontSize: 12, fontWeight: 'bold' }} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
 
         {/* COLUMNA DERECHA (4/12) */}
@@ -615,6 +670,7 @@ export function Dashboard() {
               })()}
             </div>
             
+            {/* ✅ SECCIÓN DE EVENTOS MÁS GRANDE */}
             <div className="mt-3 space-y-2">
               <div className="flex gap-2">
                 <input
@@ -626,12 +682,15 @@ export function Dashboard() {
                 />
                 <Button size="sm" onClick={addCalendarNote} className="text-xs px-2 py-1.5 bg-blue-600 text-white hover:bg-blue-700">+</Button>
               </div>
-              {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
-                <div key={n.id} className="p-2 rounded border border-slate-600 bg-slate-700/50 text-xs relative">
-                  <p className="font-medium text-slate-200">{n.title}</p>
-                  <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-0.5 right-1 text-rose-400 text-xs">×</button>
-                </div>
-              ))}
+              <div className="max-h-64 overflow-y-auto space-y-2">
+                {getDayNotes(selectedDate.toISOString().split('T')[0]).map((n: any) => (
+                  <div key={n.id} className="p-3 rounded border border-slate-600 bg-slate-700/50 text-xs relative">
+                    <p className="font-medium text-slate-200 mb-1">{n.title}</p>
+                    {n.content && <p className="text-slate-400 text-[10px]">{n.content}</p>}
+                    <button onClick={() => deleteCalendarNote(n.id)} className="absolute top-2 right-2 text-rose-400 text-xs">×</button>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -676,7 +735,7 @@ export function Dashboard() {
                 {birthdays.map((c: any) => (
                   <div key={c.id} className="p-3 bg-slate-700/50 rounded-lg border border-slate-600 text-xs">
                     <p className="font-semibold text-slate-200">{c.first_name} {c.last_name}</p>
-                    <p className="text-pink-400 font-semibold">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
+                    <p className="text-pink-400 font-semibold">{c.days === 0 ? ' Hoy' : `${c.days} días`}</p>
                   </div>
                 ))}
               </div>
