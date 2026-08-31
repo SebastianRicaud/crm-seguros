@@ -122,7 +122,6 @@ export function Dashboard() {
     setPayments(sorted);
   }
 
-  // ✅ Cargar siniestros abiertos con última nota
   async function loadClaims() {
     const { data } = await supabase.from('claims')
       .select('*, clients(first_name, last_name), policies(policy_number), claim_notes(content, created_at)')
@@ -130,7 +129,6 @@ export function Dashboard() {
       .order('created_at', { ascending: false })
       .limit(10);
     
-    // Procesar para obtener la última nota de cada siniestro
     const claimsWithLastNote = (data || []).map((claim: any) => {
       const notes = claim.claim_notes || [];
       const lastNote = notes.length > 0 
@@ -281,7 +279,7 @@ export function Dashboard() {
     const alerts: any[] = [];
     payments.forEach((p) => { alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 }); });
     renewals.filter(r => { const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000); return days <= 2; }).forEach(r => { alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 }); });
-    birthdays.filter(b => b.days <= 1).forEach(b => { alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 }); });
+    birthdays.filter(b => b.days <= 1).forEach(b => { alerts.push({ type: 'birthday', message: ` ${b.first_name}`, priority: 3 }); });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
   }, [payments, renewals, birthdays]);
 
@@ -316,7 +314,7 @@ export function Dashboard() {
       {/* HEADER */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-100"> Dashboard</h1>
+          <h1 className="text-3xl font-bold text-slate-100">🏠 Dashboard</h1>
           <p className="text-sm text-slate-400 mt-1">Vista general de la cartera y gestión del período</p>
         </div>
         <div className="flex items-center gap-3">
@@ -400,7 +398,7 @@ export function Dashboard() {
           )}
         </div>
         
-        {/* ✅ SINIESTROS ABIERTOS */}
+        {/* SINIESTROS ABIERTOS */}
         <div className="bg-slate-800 rounded-xl p-5 border border-slate-700 hover:border-rose-500 transition-all cursor-pointer" onClick={() => navigate('/claims')}>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Siniestros abiertos</p>
           <p className="text-3xl font-bold text-slate-100 mt-2">{stats.activeClaims}</p>
@@ -454,6 +452,37 @@ export function Dashboard() {
         {/* COLUMNA IZQUIERDA (8/12) */}
         <div className="col-span-8 space-y-6">
           
+          {/* ✅ NOTAS RÁPIDAS - MOVIDA ACÁ ARRIBA */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 className="font-bold text-slate-100 mb-3"> Notas rápidas</h3>
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                placeholder="Nueva nota..."
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                className="flex-1 px-3 py-2 border border-slate-600 bg-slate-700 rounded-lg text-xs font-medium text-slate-200"
+              />
+              <Button size="sm" onClick={addNote} className="text-xs px-3 py-2 bg-slate-600 text-white hover:bg-slate-500">+</Button>
+            </div>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {notas.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">Sin notas</p>
+              ) : (
+                notas.map((n: any) => (
+                  <div key={n.id} className="p-3 bg-amber-900/20 rounded-lg border border-amber-500/30 text-xs">
+                    <p className="font-semibold text-amber-200 mb-2">{n.content}</p>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => markNoteDone(n.id)} className="text-[10px] px-2 py-1 border border-slate-600 text-slate-300">✓ Hecho</Button>
+                      <button onClick={() => deleteNote(n.id)} className="text-rose-400 hover:text-rose-300 text-[10px] font-semibold">Eliminar</button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Cobros próximos */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
             <h3 className="font-bold text-slate-100 mb-4">💰 Cobros próximos (7 días)</h3>
@@ -478,7 +507,7 @@ export function Dashboard() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-100 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                        <p className="text-xs text-slate-400 truncate"> Día {p.payment_day}</p>
+                        <p className="text-xs text-slate-400 truncate">📅 Día {p.payment_day}</p>
                         
                         {advisorInfo && (
                           <div className="mt-1">
@@ -503,7 +532,7 @@ export function Dashboard() {
                           }`}
                           title={isEnviado ? 'Quitar enviado' : 'Marcar como enviado'}
                         >
-                          {isEnviado ? '✉️ Enviado' : '📤 Enviar'}
+                          {isEnviado ? '✉️ Enviado' : ' Enviar'}
                         </Button>
                         <Button 
                           size="sm" 
@@ -583,9 +612,9 @@ export function Dashboard() {
             )}
           </div>
 
-          {/* ✅ GRÁFICO POR COMPAÑÍA - MOVIDO AL FINAL */}
+          {/* GRÁFICO POR COMPAÑÍA - AL FINAL */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-            <h3 className="font-bold text-slate-100 mb-4">📊 Pólizas por compañía</h3>
+            <h3 className="font-bold text-slate-100 mb-4"> Pólizas por compañía</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 40 }}>
@@ -670,7 +699,7 @@ export function Dashboard() {
               })()}
             </div>
             
-            {/* ✅ SECCIÓN DE EVENTOS MÁS GRANDE */}
+            {/* SECCIÓN DE EVENTOS */}
             <div className="mt-3 space-y-2">
               <div className="flex gap-2">
                 <input
@@ -694,37 +723,6 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Notas rápidas */}
-          <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-            <h3 className="font-bold text-slate-100 mb-3">📝 Notas rápidas</h3>
-            <div className="flex gap-2 mb-3">
-              <input
-                type="text"
-                placeholder="Nueva nota..."
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addNote()}
-                className="flex-1 px-3 py-2 border border-slate-600 bg-slate-700 rounded-lg text-xs font-medium text-slate-200"
-              />
-              <Button size="sm" onClick={addNote} className="text-xs px-3 py-2 bg-slate-600 text-white hover:bg-slate-500">+</Button>
-            </div>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {notas.length === 0 ? (
-                <p className="text-xs text-slate-500 text-center py-4">Sin notas</p>
-              ) : (
-                notas.map((n: any) => (
-                  <div key={n.id} className="p-3 bg-amber-900/20 rounded-lg border border-amber-500/30 text-xs">
-                    <p className="font-semibold text-amber-200 mb-2">{n.content}</p>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => markNoteDone(n.id)} className="text-[10px] px-2 py-1 border border-slate-600 text-slate-300">✓ Hecho</Button>
-                      <button onClick={() => deleteNote(n.id)} className="text-rose-400 hover:text-rose-300 text-[10px] font-semibold">Eliminar</button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
           {/* Cumpleaños */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
             <h3 className="font-bold text-slate-100 mb-3">🎂 Cumpleaños</h3>
@@ -735,7 +733,7 @@ export function Dashboard() {
                 {birthdays.map((c: any) => (
                   <div key={c.id} className="p-3 bg-slate-700/50 rounded-lg border border-slate-600 text-xs">
                     <p className="font-semibold text-slate-200">{c.first_name} {c.last_name}</p>
-                    <p className="text-pink-400 font-semibold">{c.days === 0 ? ' Hoy' : `${c.days} días`}</p>
+                    <p className="text-pink-400 font-semibold">{c.days === 0 ? '🎉 Hoy' : `${c.days} días`}</p>
                   </div>
                 ))}
               </div>
