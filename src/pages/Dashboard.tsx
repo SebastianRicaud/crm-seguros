@@ -70,6 +70,7 @@ export function Dashboard() {
     setBirthdays(upcoming);
   }
 
+  // ✅ FUNCIÓN CORREGIDA: Funciona tanto para registros nuevos como antiguos
   async function loadPayments() {
     const today = new Date();
     const currentDay = today.getDate();
@@ -78,12 +79,11 @@ export function Dashboard() {
     const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
     const daysAhead = 7;
     
+    // Traer todos los cobros en efectivo/cheques sin filtrar por mes/año en la DB
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name, advisor)')
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
-      .not('payment_day', 'is', null)
-      .eq('payment_year', currentYear)
-      .eq('payment_month', String(currentMonth).padStart(2, '0'));
+      .not('payment_day', 'is', null);
 
     if (error) {
       console.error("Error cargando cobros:", error);
@@ -94,28 +94,46 @@ export function Dashboard() {
     const filtered = (data || []).filter((p: any) => {
       const paymentDay = parseInt(p.payment_day, 10);
       if (isNaN(paymentDay)) return false;
+      
+      // Si tiene payment_year y payment_month, verificar que sea del mes actual
+      if (p.payment_year && p.payment_month) {
+        const paymentMonth = parseInt(p.payment_month, 10);
+        const paymentYear = parseInt(p.payment_year, 10);
+        if (paymentYear !== currentYear || paymentMonth !== currentMonth) {
+          return false;
+        }
+      }
+      
+      // Si está cobrado, no mostrar
       if (p.payment_collected === true) return false;
       
+      // Caso 1: El día de cobro es hoy o futuro en el mes actual
       if (paymentDay >= currentDay) {
         const daysUntil = paymentDay - currentDay;
         return daysUntil <= daysAhead;
       }
       
+      // Caso 2: El día de cobro ya pasó → mostrar del próximo mes
       const daysUntilEndOfMonth = daysInCurrentMonth - currentDay;
       const daysIntoNextMonth = paymentDay;
       const totalDaysUntil = daysUntilEndOfMonth + daysIntoNextMonth;
+      
       return totalDaysUntil <= daysAhead;
     });
     
+    // Ordenar por proximidad
     const sorted = filtered.sort((a: any, b: any) => {
       const dayA = parseInt(a.payment_day, 10);
       const dayB = parseInt(b.payment_day, 10);
+      
       let dateA: Date;
       if (dayA >= currentDay) dateA = new Date(currentYear, currentMonth - 1, dayA);
       else dateA = new Date(currentYear, currentMonth, dayA);
+      
       let dateB: Date;
       if (dayB >= currentDay) dateB = new Date(currentYear, currentMonth - 1, dayB);
       else dateB = new Date(currentYear, currentMonth, dayB);
+      
       return dateA.getTime() - dateB.getTime();
     });
     
@@ -279,7 +297,7 @@ export function Dashboard() {
     const alerts: any[] = [];
     payments.forEach((p) => { alerts.push({ type: 'payment', message: `💰 Cobro: ${p.clients?.first_name}`, priority: 1 }); });
     renewals.filter(r => { const days = Math.ceil((new Date(r.expiration_date).getTime() - new Date().getTime()) / 86400000); return days <= 2; }).forEach(r => { alerts.push({ type: 'renewal', message: `⚠️ Vence: ${r.clients?.first_name}`, priority: 2 }); });
-    birthdays.filter(b => b.days <= 1).forEach(b => { alerts.push({ type: 'birthday', message: ` ${b.first_name}`, priority: 3 }); });
+    birthdays.filter(b => b.days <= 1).forEach(b => { alerts.push({ type: 'birthday', message: `🎂 ${b.first_name}`, priority: 3 }); });
     setUrgentAlerts(alerts.sort((a, b) => a.priority - b.priority));
   }, [payments, renewals, birthdays]);
 
@@ -380,7 +398,7 @@ export function Dashboard() {
                         {r.insurance_types?.name || 'Seguro'} · {r.companies?.name || '—'}
                       </p>
                       <p className="text-[10px] text-amber-400 font-medium mt-0.5">
-                        📅 Vence: {formatDate(r.expiration_date)}
+                         Vence: {formatDate(r.expiration_date)}
                       </p>
                     </div>
                     <div className="ml-2 text-cyan-400">
@@ -452,9 +470,9 @@ export function Dashboard() {
         {/* COLUMNA IZQUIERDA (8/12) */}
         <div className="col-span-8 space-y-6">
           
-          {/* ✅ NOTAS RÁPIDAS - MOVIDA ACÁ ARRIBA */}
+          {/* NOTAS RÁPIDAS */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-            <h3 className="font-bold text-slate-100 mb-3"> Notas rápidas</h3>
+            <h3 className="font-bold text-slate-100 mb-3">📝 Notas rápidas</h3>
             <div className="flex gap-2 mb-3">
               <input
                 type="text"
@@ -512,7 +530,7 @@ export function Dashboard() {
                         {advisorInfo && (
                           <div className="mt-1">
                             <Badge color={advisorInfo.color}>
-                              {p.clients?.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
+                              {p.clients?.advisor === 'Naty' ? '' : '🔵'} {advisorInfo.label}
                             </Badge>
                           </div>
                         )}
@@ -532,7 +550,7 @@ export function Dashboard() {
                           }`}
                           title={isEnviado ? 'Quitar enviado' : 'Marcar como enviado'}
                         >
-                          {isEnviado ? '✉️ Enviado' : ' Enviar'}
+                          {isEnviado ? '✉️ Enviado' : '📤 Enviar'}
                         </Button>
                         <Button 
                           size="sm" 
@@ -614,7 +632,7 @@ export function Dashboard() {
 
           {/* GRÁFICO POR COMPAÑÍA - AL FINAL */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-            <h3 className="font-bold text-slate-100 mb-4"> Pólizas por compañía</h3>
+            <h3 className="font-bold text-slate-100 mb-4">📊 Pólizas por compañía</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={policiesByCompany} layout="vertical" margin={{ left: 10, right: 40 }}>
