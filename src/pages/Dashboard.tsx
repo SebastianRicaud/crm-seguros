@@ -70,7 +70,6 @@ export function Dashboard() {
     setBirthdays(upcoming);
   }
 
-  // ✅ FUNCIÓN CORREGIDA: Funciona tanto para registros nuevos como antiguos
   async function loadPayments() {
     const today = new Date();
     const currentDay = today.getDate();
@@ -79,7 +78,6 @@ export function Dashboard() {
     const daysInCurrentMonth = new Date(currentYear, currentMonth, 0).getDate();
     const daysAhead = 7;
     
-    // Traer todos los cobros en efectivo/cheques sin filtrar por mes/año en la DB
     const { data, error } = await supabase.from('policies').select('*, clients(first_name, last_name, advisor)')
       .in('payment_method', ['Efectivo', 'Cheques', 'efectivo', 'cheques'])
       .eq('is_archived', false)
@@ -121,7 +119,6 @@ export function Dashboard() {
       return totalDaysUntil <= daysAhead;
     });
     
-    // Ordenar por proximidad
     const sorted = filtered.sort((a: any, b: any) => {
       const dayA = parseInt(a.payment_day, 10);
       const dayB = parseInt(b.payment_day, 10);
@@ -398,7 +395,7 @@ export function Dashboard() {
                         {r.insurance_types?.name || 'Seguro'} · {r.companies?.name || '—'}
                       </p>
                       <p className="text-[10px] text-amber-400 font-medium mt-0.5">
-                         Vence: {formatDate(r.expiration_date)}
+                        📅 Vence: {formatDate(r.expiration_date)}
                       </p>
                     </div>
                     <div className="ml-2 text-cyan-400">
@@ -472,7 +469,7 @@ export function Dashboard() {
           
           {/* NOTAS RÁPIDAS */}
           <div className="bg-slate-800 rounded-xl border border-slate-700 p-4">
-            <h3 className="font-bold text-slate-100 mb-3">📝 Notas rápidas</h3>
+            <h3 className="font-bold text-slate-100 mb-3"> Notas rápidas</h3>
             <div className="flex gap-2 mb-3">
               <input
                 type="text"
@@ -525,12 +522,12 @@ export function Dashboard() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-slate-100 text-sm truncate">{p.clients?.first_name} {p.clients?.last_name}</p>
-                        <p className="text-xs text-slate-400 truncate">📅 Día {p.payment_day}</p>
+                        <p className="text-xs text-slate-400 truncate"> Día {p.payment_day}</p>
                         
                         {advisorInfo && (
                           <div className="mt-1">
                             <Badge color={advisorInfo.color}>
-                              {p.clients?.advisor === 'Naty' ? '' : '🔵'} {advisorInfo.label}
+                              {p.clients?.advisor === 'Naty' ? '🌸' : '🔵'} {advisorInfo.label}
                             </Badge>
                           </div>
                         )}
